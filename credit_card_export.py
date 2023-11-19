@@ -1,13 +1,65 @@
 import os
 import re
 import unicodedata
+import subprocess
+import shutil
+import logging
 
 import pandas as pd
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
+# log_file = '' os.getenv("LOG_LOCATION")
+
+# handler = RotatingFileHandler(
+#     log_file,
+#     maxBytes=1024 * 1024,
+#     backupCount=5,
+# )
+formatter = logging.Formatter(
+    "%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S %Z",
+)
+# handler.setFormatter(formatter)
+
+# Create a StreamHandler to log messages to the terminal
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S %Z"
+    )
+)
+
+logger = logging.getLogger(__name__)
+logger.addHandler(stream_handler)
+# logger.addHandler(handler)
+
+# should_roll_over = os.path.isfile(log_file)
+# if should_roll_over:  # log already exists, roll over!
+#     handler.doRollover()
+
+logger.setLevel(logging.INFO)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+TOKEN = os.getenv("TOKEN")
+HOME_IP = os.getenv("HOME_IP")
+DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
+OUTPUT_PATH=os.getenv("OUTPUT_PATH")
+CC_IMPORTS_DIR=os.getenv("CC_IMPORTS_DIR")
+GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 
+def notify(header, message):
+    """Send notification to gotify"""
+    cmd = f'curl "http://{HOME_IP}:8991/message?token={GOTIFY_TOKEN}" -F "title=[{header}]" -F "message"="{message}" -F "priority=5"'
+    subprocess.run(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
 
 def is_japanese(string):
     if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
@@ -74,7 +126,31 @@ def apply_normalization(df):
     df['Name'] = df['Name'].apply(normalize_text)
     return df
 
+
+def upload_to_firefly(imports_dir):
+    completed_process = subprocess.run([
+    "docker", "run",
+    "--rm",
+    "-v", f"{imports_dir}:/import",
+    "-e", f"FIREFLY_III_ACCESS_TOKEN={TOKEN}",
+    "-e", "IMPORT_DIR_ALLOWLIST=/import",
+    "-e", f"FIREFLY_III_URL={HOME_IP}:8995",
+    "-e", "WEB_SERVER=false",
+    "fireflyiii/data-importer:develop"
+    ], capture_output=True, text=True)
+    print("Output:", completed_process.stdout)
+    print("Error:", completed_process.stderr)
+
+def copy_template(imports_dir, filename):
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    config_path = os.path.join(script_path, "bank_config.json")
+    shutil.copyfile(config_path, os.path.join(imports_dir, filename + '.json'))
+    logger.info(f'JSON Import config copied to import directory: {imports_dir}')
+
+
 def main():
+    notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
+    imports_dir = CC_IMPORTS_DIR 
     with open('table_export.html', 'r') as f:
         content = f.read()
     df = html_to_df(content)
@@ -84,7 +160,17 @@ def main():
     df = handle_pure_japanese(df)
     df = apply_category(df) 
     df = apply_normalization(df)
-    df.to_csv('pandas_parsed.csv')
+    output_path = os.path.join(imports_dir, 'credit_card_export.csv')
+    df.to_csv(output_path)
+
+    # copy files including json file into import dir with correct names. First clean out any old files from earlier runs.
+    copy_template(imports_dir, output_path)
+    try:
+        upload_to_firefly(imports_dir + 'abc')
+    except:
+        notify('FF3_IMPORT', 'Bank data import failed during upload phase.')
+        raise
+    notify('FF3_IMPORT', 'Bank data imported sucessfully with {rows} rows')
 
 if __name__ == '__main__':
     main()

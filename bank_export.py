@@ -22,7 +22,7 @@ USER=os.getenv("BANK_ACCOUNT_USER")
 PASSWORD=os.getenv("BANK_ACCOUNT_PASSWORD")
 DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
 OUTPUT_PATH=os.getenv("OUTPUT_PATH")
-IMPORTS_DIR=os.getenv("IMPORTS_DIR")
+BANK_IMPORTS_DIR=os.getenv("BANK_IMPORTS_DIR")
 GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 # log_file = '' os.getenv("LOG_LOCATION")
 
@@ -171,7 +171,7 @@ def copy_template(imports_dir, filename):
 
 if __name__ == "__main__":
     notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
-    imports_dir = IMPORTS_DIR 
+    imports_dir = BANK_IMPORTS_DIR 
     empty_imports(imports_dir)
     os.makedirs(imports_dir, exist_ok=True)
     current_month = datetime.datetime.today()
