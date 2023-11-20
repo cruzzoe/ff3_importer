@@ -61,6 +61,11 @@ def notify(header, message):
         check=True,
     )
 
+
+def empty_imports(imports):
+    """Empty the import directory"""
+    if os.path.exists(imports):
+        shutil.rmtree(imports)
 def is_japanese(string):
     if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
         return string
@@ -143,7 +148,8 @@ def upload_to_firefly(imports_dir):
 
 def copy_template(imports_dir, filename):
     script_path = os.path.dirname(os.path.realpath(__file__))
-    config_path = os.path.join(script_path, "bank_config.json")
+    config_path = os.path.join(script_path, "credit_card_config.json")
+    filename = filename.split('/')[-1].split('.')[0]
     shutil.copyfile(config_path, os.path.join(imports_dir, filename + '.json'))
     logger.info(f'JSON Import config copied to import directory: {imports_dir}')
 
@@ -151,6 +157,9 @@ def copy_template(imports_dir, filename):
 def main():
     notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
     imports_dir = CC_IMPORTS_DIR 
+    empty_imports(imports_dir)
+    os.makedirs(imports_dir, exist_ok=True)
+    # TODO how to src latest extraction filename?
     with open('table_export.html', 'r') as f:
         content = f.read()
     df = html_to_df(content)
@@ -161,16 +170,19 @@ def main():
     df = apply_category(df) 
     df = apply_normalization(df)
     output_path = os.path.join(imports_dir, 'credit_card_export.csv')
+    rows = len(df)
+    logger.info(f"Number of rows in df: {rows}")
     df.to_csv(output_path)
 
     # copy files including json file into import dir with correct names. First clean out any old files from earlier runs.
+    logger.info(f'Output saved to path {output_path}')
     copy_template(imports_dir, output_path)
     try:
-        upload_to_firefly(imports_dir + 'abc')
+        upload_to_firefly(imports_dir)
     except:
         notify('FF3_IMPORT', 'Bank data import failed during upload phase.')
         raise
-    notify('FF3_IMPORT', 'Bank data imported sucessfully with {rows} rows')
+    notify('FF3_IMPORT', f'Bank data imported sucessfully with {rows} rows')
 
 if __name__ == '__main__':
     main()

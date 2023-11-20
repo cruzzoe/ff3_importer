@@ -205,4 +205,4 @@ if __name__ == "__main__":
     except:
         notify('FF3_IMPORT', 'Bank data import failed during upload phase.')
         raise
-    notify('FF3_IMPORT', 'Bank data imported sucessfully with {rows} rows')
+    notify('FF3_IMPORT', f'Bank data imported sucessfully with {rows} rows')
