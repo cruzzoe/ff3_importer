@@ -45,7 +45,6 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 TOKEN = os.getenv("TOKEN")
 HOME_IP = os.getenv("HOME_IP")
 DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
-OUTPUT_PATH=os.getenv("OUTPUT_PATH")
 CC_IMPORTS_DIR=os.getenv("CC_IMPORTS_DIR")
 GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 
@@ -71,7 +70,6 @@ def is_japanese(string):
         return string
     else:
         return ''
-
 
 def html_to_df(html):
     df = pd.read_html(html)[2]
@@ -101,7 +99,7 @@ def translate(text):
     prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
     response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.2)
     translated_text = response.choices[0].text.strip()
-    print(f'Translate: {text} to {translated_text}')
+    logger.info(f'Translate: {text} to {translated_text}')
     return translated_text.replace('"', '')
 
 def normalize_text(text):
@@ -119,7 +117,7 @@ def categorize(merchant):
     prompt =  f"Select an appropriate category for shopping merchant {merchant} from: restaurant, drinking, groceries, entertainment, pet, hobbies, coffee, amazon, transportation, utilities, healthcare, online services, home improvement, fitness, insurance, education, unknown. Return only one category name."
     response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0)
     category = response.choices[0].text.strip().lower()
-    print(f'Selected merchant: {merchant} to {category}')
+    logger.info(f'Selected merchant: {merchant} to {category}')
     return category.capitalize()
 
 def apply_category(df):
@@ -143,8 +141,8 @@ def upload_to_firefly(imports_dir):
     "-e", "WEB_SERVER=false",
     "fireflyiii/data-importer:develop"
     ], capture_output=True, text=True)
-    print("Output:", completed_process.stdout)
-    print("Error:", completed_process.stderr)
+    logger.info("Output:", completed_process.stdout)
+    logger.info("Error:", completed_process.stderr)
 
 def copy_template(imports_dir, filename):
     script_path = os.path.dirname(os.path.realpath(__file__))
