@@ -55,13 +55,13 @@ class BaseImporter(ABC):
     def __init__(self, imports_dir):
         self.import_dir = imports_dir
 
-    def copy_template(self, imports_dir):
+    def copy_template(self):
         class_name = self.__class__.__name__
         output_path = os.path.join(self.import_dir, class_name + '.json')
         script_path = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_path, class_name + "_config.json")
-        shutil.copyfile(config_path, os.path.join(imports_dir, output_path))
-        logger.info(f'JSON Import config copied to import directory: {imports_dir}')
+        shutil.copyfile(config_path, os.path.join(self.import_dir, output_path))
+        logger.info(f'JSON Import config copied to import directory: {self.import_dir}')
 
     def empty_imports(self):
         """Empty the import directory"""

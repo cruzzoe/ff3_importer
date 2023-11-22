@@ -18,10 +18,6 @@ import pandas as pd
 
 load_dotenv()
 
-TOKEN = os.getenv("TOKEN")
-HOME_IP = os.getenv("HOME_IP")
-DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
-GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 RESTAURANT_USER=os.getenv('RESTAURANT_USER')
 RESTAURANT_PASSWORD=os.getenv('RESTAURANT_PASSWORD')
 RESTAURANT_IMPORTS_DIR=os.getenv('RESTAURANT_IMPORTS_DIR')
@@ -94,9 +90,9 @@ class RestaurantCardImporter(BaseImporter):
         df = self.apply_normalization(df)
         df.Amount = df.Amount.str.replace('円', '')
         self.to_csv(df)
-        self.copy_template(self.import_dir)
+        self.copy_template()
         self.upload_to_firefly()
 
-# rc = RestaurantCardImporter(RESTAURANT_IMPORTS_DIR)
-
-# rc.run()
+if __name__ == "__main__":
+    rc = RestaurantCardImporter(RESTAURANT_IMPORTS_DIR)
+    rc.run()    

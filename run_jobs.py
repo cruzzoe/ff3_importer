@@ -1,6 +1,6 @@
 from bank_export import BankImporter 
-from credit_card_export import CreditCardImporter
-from restaurant_export import RestaurantCardImporter
+from credit_card_import import CreditCardImporter
+from restaurant_import import RestaurantCardImporter
 import logging
 
 logging.basicConfig(level=logging.INFO)
