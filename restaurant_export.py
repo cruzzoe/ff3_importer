@@ -33,8 +33,6 @@ class RestaurantCardImporter(BaseImporter):
         super().__init__(*args, **kwargs)
 
     def download_transactions(self):
-        # month_end = month_end.strftime("%Y/%m/%d")
-
         chrome_options = Options()
         # chrome_options.add_experimental_option()
         driver = webdriver.Chrome(options=chrome_options)
@@ -48,9 +46,6 @@ class RestaurantCardImporter(BaseImporter):
         html = driver.page_source
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
-        # save soup to a file
-        with open('soup.html', 'w') as f:
-            f.write(soup.prettify())
         return soup
     
 
@@ -83,7 +78,7 @@ class RestaurantCardImporter(BaseImporter):
         # filter df to only include rows which belong to the month we are importing. 
         df['Date_obj'] = pd.to_datetime(df['Date'])
         df['Month'] = df['Date_obj'].dt.month
-        df_fitered = df[df['Month'] == 11]
+        df_fitered = df[df['Month'] == month_int]
         df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
         # logger.debug(df)
         return df_fitered

@@ -65,6 +65,7 @@ def empty_imports(imports):
     """Empty the import directory"""
     if os.path.exists(imports):
         shutil.rmtree(imports)
+        
 def is_japanese(string):
     if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
         return string
