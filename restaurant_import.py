@@ -91,7 +91,7 @@ class RestaurantCardImporter(BaseImporter):
         df.Amount = df.Amount.str.replace('円', '')
         self.to_csv(df)
         self.copy_template()
-        # self.upload_to_firefly()
+        self.upload_to_firefly()
 
 if __name__ == "__main__":
     rc = RestaurantCardImporter(RESTAURANT_IMPORTS_DIR)
