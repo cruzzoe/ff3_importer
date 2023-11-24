@@ -33,27 +33,28 @@ stream_handler.setFormatter(
     )
 )
 
-logger = logging.getLogger(__name__)
-logger.addHandler(stream_handler)
-# logger.addHandler(handler)
+def configure_logger(logger):
+    logger.addHandler(stream_handler)
+    # logger.addHandler(handler)
 
-# should_roll_over = os.path.isfile(log_file)
-# if should_roll_over:  # log already exists, roll over!
-#     handler.doRollover()
+    # should_roll_over = os.path.isfile(log_file)
+    # if should_roll_over:  # log already exists, roll over!
+    #     handler.doRollover()
 
-logger.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
+    return logger
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 TOKEN = os.getenv("TOKEN")
 HOME_IP = os.getenv("HOME_IP")
-DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
 GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 
 class BaseImporter(ABC):
 
     def __init__(self, imports_dir):
         self.import_dir = imports_dir
+        self.logger = logging.getLogger(__name__)
 
     def copy_template(self):
         class_name = self.__class__.__name__
@@ -61,7 +62,7 @@ class BaseImporter(ABC):
         script_path = os.path.dirname(os.path.realpath(__file__))
         config_path = os.path.join(script_path, class_name + "_config.json")
         shutil.copyfile(config_path, os.path.join(self.import_dir, output_path))
-        logger.info(f'JSON Import config copied to import directory: {self.import_dir}')
+        self.logger.info(f'JSON Import config copied to import directory: {self.import_dir}')
 
     def empty_imports(self):
         """Empty the import directory"""
@@ -79,10 +80,10 @@ class BaseImporter(ABC):
         "-e", "IMPORT_DIR_ALLOWLIST=/import",
         "-e", f"FIREFLY_III_URL={HOME_IP}:8995",
         "-e", "WEB_SERVER=false",
-        "fireflyiii/data-importer:develop"
+        "fireflyiii/data-importer:latest"
         ], capture_output=True, text=True)
-        logger.info("Output: %s", completed_process.stdout)
-        logger.info("Error: %s}" ,completed_process.stderr)
+        self.logger.info("Output: %s", completed_process.stdout)
+        self.logger.info("Error: %s}" ,completed_process.stderr)
 
     
     def notify(self, header, message):
@@ -101,9 +102,9 @@ class BaseImporter(ABC):
         class_name = self.__class__.__name__
         output_path = os.path.join(self.import_dir, class_name + '.csv')
         rows = len(df)
-        logger.info(f"Number of rows in df: {rows}")
-        df.to_csv(output_path)
-        logger.info(f'Saved to path {output_path}')
+        self.logger.info(f"Number of rows in df: {rows}")
+        df.to_csv(output_path, encoding="utf-8")
+        self.logger.info(f'Saved to path {output_path}')
 
     def is_japanese(self, string):
         if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
@@ -116,7 +117,7 @@ class BaseImporter(ABC):
         prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
         response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.2)
         translated_text = response.choices[0].text.strip()
-        logger.info(f'Translate: {text} to {translated_text}')
+        self.logger.info(f'Translate: {text} to {translated_text}')
         return translated_text.replace('"', '')
 
     def normalize_text(self, text):

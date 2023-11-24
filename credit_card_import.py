@@ -9,36 +9,6 @@ import pandas as pd
 from openai import OpenAI
 from dotenv import load_dotenv
 load_dotenv()
-# log_file = '' os.getenv("LOG_LOCATION")
-
-# handler = RotatingFileHandler(
-#     log_file,
-#     maxBytes=1024 * 1024,
-#     backupCount=5,
-# )
-formatter = logging.Formatter(
-    "%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S %Z",
-)
-# handler.setFormatter(formatter)
-
-# Create a StreamHandler to log messages to the terminal
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S %Z"
-    )
-)
-
-logger = logging.getLogger(__name__)
-logger.addHandler(stream_handler)
-# logger.addHandler(handler)
-
-# should_roll_over = os.path.isfile(log_file)
-# if should_roll_over:  # log already exists, roll over!
-#     handler.doRollover()
-
-logger.setLevel(logging.INFO)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -48,7 +18,7 @@ class CreditCardImporter(BaseImporter):
     
     def run(self):
         # self.download()
-        self.notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
+        self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         self.empty_imports()
         os.makedirs(self.import_dir, exist_ok=True)
         # TODO how to src latest extraction filename?
@@ -62,21 +32,19 @@ class CreditCardImporter(BaseImporter):
         df = self.handle_pure_japanese(df)
         df = self.apply_category(df) 
         df = self.apply_normalization(df)
-        output_path = os.path.join(self.import_dir, 'credit_card_export.csv')
         rows = len(df)
-        logger.info(f"Number of rows in df: {rows}")
-        df.to_csv(output_path)
-
+        self.logger.info(f"Number of rows in df: {rows}")
+        self.to_csv(df)
+        # self.upload_to_firefly(self.import_dir)
         # copy files including json file into import dir with correct names. First clean out any old files from earlier runs.
-        logger.info(f'Output saved to path {output_path}')
         self.copy_template()
         try:
-            print('uploading')
+            self.logger.info('uploading')
             # self.upload_to_firefly(self.import_dir)
         except:
-            self.notify('FF3_IMPORT', 'Bank data import failed during upload phase.')
+            self.notify('FF3_IMPORT', 'Credit Card data import failed during upload phase.')
             raise
-        self.notify('FF3_IMPORT', f'Bank data imported sucessfully with {rows} rows')
+        self.notify('FF3_IMPORT', f'Credit data imported sucessfully with {rows} rows')
 
     def html_to_df(self, html):
         df = pd.read_html(html)[2]
@@ -107,7 +75,7 @@ class CreditCardImporter(BaseImporter):
         prompt =  f"Select an appropriate category for shopping merchant {merchant} from: restaurant, drinking, groceries, entertainment, pet, hobbies, coffee, amazon, transportation, utilities, healthcare, online services, home improvement, fitness, insurance, education, unknown. Return only one category name."
         response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0)
         category = response.choices[0].text.strip().lower()
-        logger.info(f'Selected merchant: {merchant} to {category}')
+        self.logger.info(f'Selected merchant: {merchant} to {category}')
         return category.capitalize()
 
     def apply_category(self, df):
@@ -117,7 +85,7 @@ class CreditCardImporter(BaseImporter):
 
 
 def main():
-    cc = CreditCardImporter('/Users/cruzoe/firefly_imports/cc')
+    cc = CreditCardImporter(CC_IMPORTS_DIR)
     cc.run()
  
 

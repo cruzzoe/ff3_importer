@@ -1,20 +1,19 @@
 # restarant card importer
 
-from base_importer import BaseImporter
 import datetime
 import os
 import time
-from bs4 import BeautifulSoup
-import pandas as pd
 from collections import namedtuple
+from logging.handlers import RotatingFileHandler
 
+import pandas as pd
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from logging.handlers import RotatingFileHandler
 
-import pandas as pd
+from base_importer import BaseImporter
 
 load_dotenv()
 
@@ -83,6 +82,7 @@ class RestaurantCardImporter(BaseImporter):
         self.empty_imports()
         # Selenium scrape the data
         soup = self.download_transactions()
+        # Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
         month = datetime.date.today() - datetime.timedelta(days=15)
         month_int = month.month
         df = self.transform(soup, month_int)
@@ -91,7 +91,7 @@ class RestaurantCardImporter(BaseImporter):
         df.Amount = df.Amount.str.replace('円', '')
         self.to_csv(df)
         self.copy_template()
-        self.upload_to_firefly()
+        # self.upload_to_firefly()
 
 if __name__ == "__main__":
     rc = RestaurantCardImporter(RESTAURANT_IMPORTS_DIR)
