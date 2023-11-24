@@ -11,6 +11,12 @@ import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from enum import Enum
+
+class DateRange(Enum):
+    LAST_30_DAYS = 1
+    CUSTOM = 2
+
 load_dotenv()
 # log_file = '' os.getenv("LOG_LOCATION")
 
@@ -19,21 +25,23 @@ load_dotenv()
 #     maxBytes=1024 * 1024,
 #     backupCount=5,
 # )
-formatter = logging.Formatter(
+
+
+def configure_logger():
+    formatter = logging.Formatter(
     "%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S %Z",
-)
-# handler.setFormatter(formatter)
-
-# Create a StreamHandler to log messages to the terminal
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S %Z"
     )
-)
+    # handler.setFormatter(formatter)
 
-def configure_logger(logger):
+    # Create a StreamHandler to log messages to the terminal
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S %Z"
+        )
+    )
+    logger = logging.getLogger(__name__)
     logger.addHandler(stream_handler)
     # logger.addHandler(handler)
 
@@ -49,12 +57,12 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 TOKEN = os.getenv("TOKEN")
 HOME_IP = os.getenv("HOME_IP")
 GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
-
 class BaseImporter(ABC):
 
-    def __init__(self, imports_dir):
+    def __init__(self, imports_dir, date_range=DateRange.CUSTOM):
         self.import_dir = imports_dir
-        self.logger = logging.getLogger(__name__)
+        self.logger = configure_logger() 
+        self.date_range= date_range
 
     def copy_template(self):
         class_name = self.__class__.__name__
