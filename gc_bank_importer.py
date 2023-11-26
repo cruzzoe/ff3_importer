@@ -8,13 +8,13 @@ import pandas as pd
 from openai import OpenAI
 
 GC_TOKEN = os.getenv('GC_TOKEN')
-ACCOUNT = os.getenv('GC_ACCOUNT')
-GC_IMPORTS_DIR = os.getenv('GC_IMPORTS_DIR')
+ACCOUNT = os.getenv('GC_BANK1_ACCOUNT')
+GC_IMPORTS_DIR = os.getenv('GC_BANK1_IMPORTS_DIR')
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-class GoCardlessImporter(BaseImporter):
+class GoCardlessBankImporter(BaseImporter):
 
     def get_data(self):
         curl_command = f"""
@@ -69,5 +69,5 @@ class GoCardlessImporter(BaseImporter):
         self.upload_to_firefly()
 
 if __name__ == '__main__':
-    gc = GoCardlessImporter(GC_IMPORTS_DIR)
+    gc = GoCardlessBankImporter(GC_IMPORTS_DIR)
     gc.run()
