@@ -30,6 +30,7 @@ class RestaurantCardImporter(BaseImporter):
     def download_transactions(self):
         chrome_options = Options()
         # chrome_options.add_experimental_option()
+        chrome_options.add_argument("--headless")
         driver = webdriver.Chrome(options=chrome_options)
         driver.get('https://myedenred.jp/TRT/TopPage')
         driver.implicitly_wait(0.5)
@@ -71,12 +72,12 @@ class RestaurantCardImporter(BaseImporter):
 
         df = pd.DataFrame(data)
         # filter df to only include rows which belong to the month we are importing. 
-        df['Date_obj'] = pd.to_datetime(df['Date'])
-        df['Month'] = df['Date_obj'].dt.month
-        df_fitered = df[df['Month'] == month_int]
-        df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
+        # df['Date_obj'] = pd.to_datetime(df['Date'])
+        # df['Month'] = df['Date_obj'].dt.month
+        # df_fitered = df[df['Month'] == month_int]
+        # df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
         # logger.debug(df)
-        return df_fitered
+        return df
 
     def run(self):
         self.empty_imports()
