@@ -19,11 +19,7 @@ GC_CC1_IMPORTS_DIR=os.getenv("GC_CC1_IMPORTS_DIR")
 GC_BANK1_IMPORTS_DIR=os.getenv("GC_BANK1_IMPORTS_DIR")
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Run all jobs.')
-    parser.add_argument('--mode', type=str)
-    args = parser.parse_args()
-    mode = args.mode
+def main(mode):
     if mode == 'monthly':
         # run monthly
         logging.info('Running SCRAPING bank job...')
@@ -46,4 +42,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()  
+    parser = argparse.ArgumentParser(description='Run all jobs.')
+    parser.add_argument('--mode', type=str)
+    args = parser.parse_args()
+    mode = args.mode
+    run(mode)  
