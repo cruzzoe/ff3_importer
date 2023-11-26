@@ -49,7 +49,7 @@ class RestaurantCardImporter(BaseImporter):
         driver.find_element(By.NAME, "Password").send_keys(RESTAURANT_PASSWORD)
         submit_button = driver.find_element(By.ID, "login")
         submit_button.click()
-        time.sleep(7)
+        time.sleep(15)
         html = driver.page_source
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
@@ -82,6 +82,7 @@ class RestaurantCardImporter(BaseImporter):
                             data.append(row_data)
 
         df = pd.DataFrame(data)
+        self.logger.info(df)
         # filter df to only include rows which belong to the month we are importing. 
         df['Date_obj'] = pd.to_datetime(df['Date'])
         df['Month'] = df['Date_obj'].dt.month
