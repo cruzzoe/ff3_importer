@@ -19,7 +19,7 @@ GC_CC1_IMPORTS_DIR=os.getenv("GC_CC1_IMPORTS_DIR")
 GC_BANK1_IMPORTS_DIR=os.getenv("GC_BANK1_IMPORTS_DIR")
 
 
-def main(mode):
+def run(mode):
     if mode == 'monthly':
         # run monthly
         logging.info('Running SCRAPING bank job...')
