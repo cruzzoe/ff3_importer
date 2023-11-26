@@ -72,18 +72,18 @@ class RestaurantCardImporter(BaseImporter):
 
         df = pd.DataFrame(data)
         # filter df to only include rows which belong to the month we are importing. 
-        # df['Date_obj'] = pd.to_datetime(df['Date'])
-        # df['Month'] = df['Date_obj'].dt.month
-        # df_fitered = df[df['Month'] == month_int]
-        # df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
-        # logger.debug(df)
+        df['Date_obj'] = pd.to_datetime(df['Date'])
+        df['Month'] = df['Date_obj'].dt.month
+        df_fitered = df[df['Month'] == month_int]
+        df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
+        self.logger.debug(df)
         return df
 
     def run(self):
         self.empty_imports()
         # Selenium scrape the data
         soup = self.download_transactions()
-        # Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
+        # TODO Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
         month = datetime.date.today() - datetime.timedelta(days=15)
         month_int = month.month
         df = self.transform(soup, month_int)

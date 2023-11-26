@@ -27,9 +27,8 @@ class BankImporter(BaseImporter):
         self.notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
         self.empty_imports()
         current_month = datetime.datetime.today()
-        previous_month = current_month 
-        last_day = datetime.datetime.today().day
-        # _, last_day = calendar.monthrange(previous_month.year, previous_month.month)
+        previous_month = current_month - datetime.timedelta(days=30)
+        _, last_day = calendar.monthrange(previous_month.year, previous_month.month)
         month_str = previous_month.strftime("%B")
         self.logger.info(previous_month)
         month_start = datetime.datetime(previous_month.year, previous_month.month, 1)
