@@ -81,7 +81,7 @@ class BankImporter(BaseImporter):
         # I dont think this happens on ubuntu
             "prefs",
             {
-                # "download.default_directory": download_dir,
+                "download.default_directory": download_dir,
                 # "safebrowsing.enabled": True,
                 # "download.prompt_for_download": False,
                 # "safebrowsing_for_trusted_sources_enabled": False

@@ -16,7 +16,7 @@ from selenium.webdriver.common.by import By
 from base_importer import BaseImporter
 
 load_dotenv()
-
+DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")
 RESTAURANT_USER=os.getenv('RESTAURANT_USER')
 RESTAURANT_PASSWORD=os.getenv('RESTAURANT_PASSWORD')
 RESTAURANT_IMPORTS_DIR=os.getenv('RESTAURANT_IMPORTS_DIR')
@@ -31,6 +31,17 @@ class RestaurantCardImporter(BaseImporter):
         chrome_options = Options()
         # chrome_options.add_experimental_option()
         chrome_options.add_argument("--headless")
+        chrome_options.add_experimental_option(
+        # On Mac - Chrome prompts to download the file if default directory is changed.
+        # I dont think this happens on ubuntu
+            "prefs",
+            {
+                "download.default_directory": DOWNLOAD_DIR,
+                # "safebrowsing.enabled": True,
+                # "download.prompt_for_download": False,
+                # "safebrowsing_for_trusted_sources_enabled": False
+            },
+        )
         driver = webdriver.Chrome(options=chrome_options)
         driver.get('https://myedenred.jp/TRT/TopPage')
         driver.implicitly_wait(0.5)
