@@ -26,13 +26,8 @@ class BankImporter(BaseImporter):
     def run(self):
         self.notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
         self.empty_imports()
-        current_month = datetime.datetime.today()
-        previous_month = current_month - datetime.timedelta(days=30)
-        _, last_day = calendar.monthrange(previous_month.year, previous_month.month)
-        month_str = previous_month.strftime("%B")
-        self.logger.info(previous_month)
-        month_start = datetime.datetime(previous_month.year, previous_month.month, 1)
-        month_end = datetime.datetime(previous_month.year, previous_month.month, last_day)
+        month_end = datetime.date.today()
+        month_start = month_end - datetime.timedelta(days=7)
         self.logger.info(f'Start Date: {month_start}')
         self.logger.info(f'End Date: {month_end}')
         try:
@@ -45,7 +40,7 @@ class BankImporter(BaseImporter):
         file_path = self.get_file_path(DOWNLOAD_DIR)
         self.logger.info(f'Using latest download file: {file_path}')
         assert file_path.endswith('.csv'), 'File is not a csv file'
-        output_path = os.path.join(self.import_dir, 'bank_export_' + month_str.lower())
+        output_path = os.path.join(self.import_dir, 'bank_export')
         try:
             self.transform_data(file_path, output_path + '.csv')
         except:
