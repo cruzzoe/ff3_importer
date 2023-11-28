@@ -68,7 +68,8 @@ class BaseImporter(ABC):
         class_name = self.__class__.__name__
         output_path = os.path.join(self.import_dir, class_name + '.json')
         script_path = os.path.dirname(os.path.realpath(__file__))
-        config_path = os.path.join(script_path, class_name + "_config.json")
+        parent_dir = os.path.dirname(script_path)
+        config_path = os.path.join(parent_dir, 'import_configs', class_name + "_config.json")
         shutil.copyfile(config_path, os.path.join(self.import_dir, output_path))
         self.logger.info(f'JSON Import config copied to import directory: {self.import_dir}')
 
@@ -115,6 +116,7 @@ class BaseImporter(ABC):
         self.logger.info(f'Saved to path {output_path}')
 
     def is_japanese(self, string):
+        print(string)
         if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
             return string
         else:

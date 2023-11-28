@@ -2,11 +2,11 @@ import logging
 import os
 import argparse
 
-from bank_import import BankImporter
+from importers.bank_import import BankImporter
 # from credit_card_import import CreditCardImporter
-from restaurant_import import RestaurantCardImporter
-from gc_bank_importer import GoCardlessBankImporter
-from gc_cc_1_import import GoCardlessCC1Importer
+from importers.restaurant_import import RestaurantCardImporter
+from importers.gc_bank_importer import GoCardlessBankImporter
+from importers.gc_cc_1_import import GoCardlessCC1Importer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

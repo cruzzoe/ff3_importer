@@ -92,19 +92,19 @@ class RestaurantCardImporter(BaseImporter):
         return df
 
     def run(self):
-        self.empty_imports()
-        # Selenium scrape the data
-        soup = self.download_transactions()
-        # TODO Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
-        month = datetime.date.today() - datetime.timedelta(days=15)
-        month_int = month.month
-        df = self.transform(soup, month_int)
-        df = self.handle_pure_japanese(df)
-        df = self.apply_normalization(df)
-        df.Amount = df.Amount.str.replace('円', '')
-        self.to_csv(df)
+        # self.empty_imports()
+        # # Selenium scrape the data
+        # soup = self.download_transactions()
+        # # TODO Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
+        # month = datetime.date.today() - datetime.timedelta(days=15)
+        # month_int = month.month
+        # df = self.transform(soup, month_int)
+        # df = self.handle_pure_japanese(df)
+        # df = self.apply_normalization(df)
+        # df.Amount = df.Amount.str.replace('円', '')
+        # self.to_csv(df)
         self.copy_template()
-        self.upload_to_firefly()
+        # self.upload_to_firefly()
 
 if __name__ == "__main__":
     rc = RestaurantCardImporter(RESTAURANT_IMPORTS_DIR)
