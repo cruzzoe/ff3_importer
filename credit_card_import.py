@@ -21,8 +21,7 @@ class CreditCardImporter(BaseImporter):
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         self.empty_imports()
         os.makedirs(self.import_dir, exist_ok=True)
-        # TODO how to src latest extraction filename?
-        with open('table_export.html', 'r') as f:
+        with open('/Users/cruzoe/Downloads/card_dec_statement.html', 'r') as f:
             content = f.read()
 
         df = self.html_to_df(content)
@@ -39,7 +38,7 @@ class CreditCardImporter(BaseImporter):
         self.copy_template()
         try:
             self.logger.info('uploading')
-            self.upload_to_firefly(self.import_dir)
+            self.upload_to_firefly()
         except:
             self.notify('FF3_IMPORT', 'Credit Card data import failed during upload phase.')
             raise
@@ -53,14 +52,14 @@ class CreditCardImporter(BaseImporter):
         return df
 
     def remove_non_transactions(self, df):
-        df = df.iloc[1:3]
+        df = df.iloc[1:]
         return df
 
     def handle_square_payments(self, df):
         # remove the Sq* from the description column
-        df['Description'] = df['Description'].str.replace('ＳＱ＊', '')
+        df['Description'] = df['Description'].str.replace('SQ*', '')
         # if column description contains '*Sq', then replace the value in column name with the value in column description
-        df.loc[df['Name'].str.contains('Ｓｑｕａｒｅ'), 'Name'] = df['Description']
+        df.loc[df['Name'] == 'Square', 'Name'] = df['Description']
         return df
 
     def make_amounts_negative(self, df):

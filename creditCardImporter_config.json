@@ -28,7 +28,7 @@
         false
     ],
     "mapping": [],
-    "duplicate_detection_method": "none",
+    "duplicate_detection_method": "classic",
     "ignore_duplicate_lines": false,
     "unique_column_index": 0,
     "unique_column_type": "internal_reference",
@@ -52,5 +52,5 @@
     "nordigen_requisitions": [],
     "nordigen_max_days": "90",
     "conversion": false,
-    "ignore_duplicate_transactions": false
+    "ignore_duplicate_transactions": true
 }
