@@ -2,7 +2,7 @@ import os
 # from pprint import pprint as pp
 import subprocess
 import json
-from base_importer import BaseImporter
+from importers.base_importer import BaseImporter
 import pandas as pd
 #  extract data from API
 from openai import OpenAI

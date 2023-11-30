@@ -13,7 +13,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
-from base_importer import BaseImporter
+from importers.base_importer import BaseImporter
 
 load_dotenv()
 DOWNLOAD_DIR=os.getenv("DOWNLOAD_DIR")

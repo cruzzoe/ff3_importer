@@ -4,7 +4,7 @@ import unicodedata
 import subprocess
 import shutil
 import logging
-from base_importer import BaseImporter
+from importers.base_importer import BaseImporter
 import pandas as pd
 from openai import OpenAI
 from dotenv import load_dotenv
