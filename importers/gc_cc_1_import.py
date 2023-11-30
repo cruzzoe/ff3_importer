@@ -13,22 +13,10 @@ GC_IMPORTS_DIR = os.getenv('GC_CC1_IMPORTS_DIR')
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+secret_id=os.getenv("GC_SECRET_ID")
+secret_key=os.getenv("GC_SECRET_KEY")
 
 class GoCardlessCC1Importer(BaseImporter):
-
-    def get_data(self):
-        curl_command = f"""
-        curl -X GET "https://bankaccountdata.gocardless.com/api/v2/accounts/{ACCOUNT}/transactions/" \
-        -H  "accept: application/json" \
-        -H  "Authorization: Bearer {GC_TOKEN}"
-        """
-        process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        data = json.loads(process.stdout)
-        self.logger.info(data)
-        booked = data['transactions']['booked']
-        # pp(booked)
-        self.logger.info('Data Downloaded')
-        return booked
 
 
     def convert_to_df(self, data):
@@ -53,10 +41,8 @@ class GoCardlessCC1Importer(BaseImporter):
 
     def run(self):
         self.empty_imports()
-        data = self.get_data()
+        data = self.get_data(ACCOUNT)
         df = self.convert_to_df(data)
-        # df = self.split_account_and_desc(df)
-        # df = self.filter_month(df)
         self.to_csv(df)
         self.copy_template()
         self.upload_to_firefly()

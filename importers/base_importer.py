@@ -7,6 +7,9 @@ import subprocess
 import unicodedata
 from abc import ABC, abstractmethod
 
+import subprocess
+import json
+
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -18,6 +21,9 @@ class DateRange(Enum):
     CUSTOM = 2
 
 load_dotenv()
+
+secret_id=os.getenv("GC_SECRET_ID")
+secret_key=os.getenv("GC_SECRET_KEY")
 # log_file = '' os.getenv("LOG_LOCATION")
 
 # handler = RotatingFileHandler(
@@ -63,6 +69,33 @@ class BaseImporter(ABC):
         self.import_dir = imports_dir
         self.logger = configure_logger() 
         self.date_range= date_range
+
+
+    def get_token(self):
+        curl_command = f"""
+        curl -X POST "https://bankaccountdata.gocardless.com/api/v2/token/new/" \
+        -H "accept: application/json" \
+        -H  "Content-Type: application/json" \
+        -d '{{"secret_id":"{secret_id}", "secret_key":"{secret_key}"}}'
+        """
+        process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
+        token = json.loads(process.stdout)
+        self.logger.info(token)
+        return token['access']
+
+    def get_data(self, account):
+        GC_TOKEN = self.get_token()
+        curl_command = f"""
+        curl -X GET "https://bankaccountdata.gocardless.com/api/v2/accounts/{account}/transactions/" \
+        -H  "accept: application/json" \
+        -H  "Authorization: Bearer {GC_TOKEN}"
+        """
+        process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
+        data = json.loads(process.stdout)
+        self.logger.info(data)
+        booked = data['transactions']['booked']
+        self.logger.info('Data Downloaded')
+        return booked
 
     def copy_template(self):
         class_name = self.__class__.__name__
