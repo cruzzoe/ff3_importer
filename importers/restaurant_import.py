@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-
+import hashlib
 from importers.base_importer import BaseImporter
 
 load_dotenv()
@@ -26,6 +26,11 @@ class RestaurantCardImporter(BaseImporter):
     
     def _init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def create_hash(self, row):
+        result = hashlib.sha256(row.encode())
+        return result.hexdigest()
+
 
     def download_transactions(self):
         chrome_options = Options()
@@ -54,6 +59,11 @@ class RestaurantCardImporter(BaseImporter):
         # Parse the HTML content using BeautifulSoup
         soup = BeautifulSoup(html, "html.parser")
         return soup
+
+    def create_unique_id(self, df):
+        """Create a has based on Name, amount and data strings."""
+        df['unique_id'] = df.apply(lambda row: self.create_hash(row['Notes'] + row['Amount'] + row['Date']), axis=1)
+        return df
     
 
     def transform(self, soup, month_int):
@@ -88,20 +98,20 @@ class RestaurantCardImporter(BaseImporter):
         df['Month'] = df['Date_obj'].dt.month
         df_fitered = df[df['Month'] == month_int]
         df_fitered = df_fitered.drop(columns=['Month', 'Date_obj'])
-        self.logger.debug(df)
-        return df
+        self.logger.debug(df_fitered)
+        return df_fitered
 
     def run(self):
         self.empty_imports()
         # Selenium scrape the data
         soup = self.download_transactions()
-        # TODO Month is needed to filter only recent transactions. This contains a bug as if we run mid month the month filter is wrong
-        month = datetime.date.today() - datetime.timedelta(days=15)
+        month = datetime.date.today() 
         month_int = month.month
         df = self.transform(soup, month_int)
         df = self.handle_pure_japanese(df)
         df = self.apply_normalization(df)
         df.Amount = df.Amount.str.replace('円', '')
+        df = self.create_unique_id(df)
         self.to_csv(df)
         self.copy_template()
         self.upload_to_firefly()
