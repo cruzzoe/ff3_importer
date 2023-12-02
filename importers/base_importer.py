@@ -69,9 +69,10 @@ class BaseImporter(ABC):
         self.import_dir = imports_dir
         self.logger = configure_logger() 
         self.date_range= date_range
-
+        self.logger.info('Init class' + self.__class__.__name__)
 
     def get_token(self):
+        self.logger.info('Retrieving GC token')
         curl_command = f"""
         curl -X POST "https://bankaccountdata.gocardless.com/api/v2/token/new/" \
         -H "accept: application/json" \
@@ -80,10 +81,10 @@ class BaseImporter(ABC):
         """
         process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
         token = json.loads(process.stdout)
-        self.logger.info(token)
         return token['access']
 
     def get_data(self, account):
+        self.logger.info('Getting Data from GoCardless API')
         GC_TOKEN = self.get_token()
         curl_command = f"""
         curl -X GET "https://bankaccountdata.gocardless.com/api/v2/accounts/{account}/transactions/" \
@@ -98,6 +99,7 @@ class BaseImporter(ABC):
         return booked
 
     def copy_template(self):
+        self.logger.info('Copying template')
         class_name = self.__class__.__name__
         output_path = os.path.join(self.import_dir, class_name + '.json')
         script_path = os.path.dirname(os.path.realpath(__file__))
@@ -114,18 +116,26 @@ class BaseImporter(ABC):
         
     
     def upload_to_firefly(self):
-        completed_process = subprocess.run([
-        "docker", "run",
-        "--rm",
-        "-v", f"{self.import_dir}:/import",
-        "-e", f"FIREFLY_III_ACCESS_TOKEN={TOKEN}",
-        "-e", "IMPORT_DIR_ALLOWLIST=/import",
-        "-e", f"FIREFLY_III_URL={HOME_IP}:8995",
-        "-e", "WEB_SERVER=false",
-        "fireflyiii/data-importer:latest"
-        ], capture_output=True, text=True)
-        self.logger.info("Output: %s", completed_process.stdout)
-        self.logger.info("Error: %s}" ,completed_process.stderr)
+        # TODO check if any data was actually imported. If not, then don't notify!
+        try:
+            self.logger.info('uploading to firefly')
+            completed_process = subprocess.run([
+            "docker", "run",
+            "--rm",
+            "-v", f"{self.import_dir}:/import",
+            "-e", f"FIREFLY_III_ACCESS_TOKEN={TOKEN}",
+            "-e", "IMPORT_DIR_ALLOWLIST=/import",
+            "-e", f"FIREFLY_III_URL={HOME_IP}:8995",
+            "-e", "WEB_SERVER=false",
+            "fireflyiii/data-importer:latest"
+            ], capture_output=True, text=True)
+            self.logger.info("Output: %s", completed_process.stdout)
+            self.logger.info("Error: %s}" ,completed_process.stderr)
+            self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__))
+        except:
+            self.logger.error('Error uploading to firefly')
+            self.notify('FF3_IMPORT', 'Error uploading to firefly for ' + self.__class__.__name__))
+            raise
 
     
     def notify(self, header, message):
@@ -144,12 +154,11 @@ class BaseImporter(ABC):
         class_name = self.__class__.__name__
         output_path = os.path.join(self.import_dir, class_name + '.csv')
         rows = len(df)
-        self.logger.info(f"Number of rows in df: {rows}")
+        self.logger.info(f"Number of rows in df to save to csv: {rows}")
         df.to_csv(output_path, encoding="utf-8")
         self.logger.info(f'Saved to path {output_path}')
 
     def is_japanese(self, string):
-        print(string)
         if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
             return string
         else:

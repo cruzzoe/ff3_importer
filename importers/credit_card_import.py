@@ -34,14 +34,8 @@ class CreditCardImporter(BaseImporter):
         rows = len(df)
         self.logger.info(f"Number of rows in df: {rows}")
         self.to_csv(df)
-        # copy files including json file into import dir with correct names. First clean out any old files from earlier runs.
         self.copy_template()
-        try:
-            self.logger.info('uploading')
-            self.upload_to_firefly()
-        except:
-            self.notify('FF3_IMPORT', 'Credit Card data import failed during upload phase.')
-            raise
+        self.upload_to_firefly()
         self.notify('FF3_IMPORT', f'Credit data imported sucessfully with {rows} rows')
 
     def html_to_df(self, html):

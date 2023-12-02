@@ -35,7 +35,7 @@ class RestaurantCardImporter(BaseImporter):
     def download_transactions(self):
         chrome_options = Options()
         # chrome_options.add_experimental_option()
-        chrome_options.add_argument("--headless")
+        # chrome_options.add_argument("--headless")
         chrome_options.add_experimental_option(
         # On Mac - Chrome prompts to download the file if default directory is changed.
         # I dont think this happens on ubuntu
@@ -90,6 +90,11 @@ class RestaurantCardImporter(BaseImporter):
                             amount = '-' + amount
                             row_data = RowData(Date=date, Name=merchant, Amount=amount)
                             data.append(row_data)
+                        else:
+                            amount = td_text
+                            amount = amount
+                            row_data = RowData(Date=date, Name=merchant, Amount=amount)
+                            data.append(row_data)
 
         df = pd.DataFrame(data)
         self.logger.info(df)
@@ -105,7 +110,7 @@ class RestaurantCardImporter(BaseImporter):
         self.empty_imports()
         # Selenium scrape the data
         soup = self.download_transactions()
-        month = datetime.date.today() 
+        month = datetime.date.today()
         month_int = month.month
         df = self.transform(soup, month_int)
         df = self.handle_pure_japanese(df)

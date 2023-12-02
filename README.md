@@ -8,8 +8,9 @@ Convert financial info into categorized csv for use in firefly3 to gain clarity 
 
 todo
 
-- standardise interface
-- jenkins pipelines
 - fix cc selenium automation
-- handle canteen card 
+- stop using sleep and use native selenium waits
+- better error notification
+- webhooks for particular transactions/notifications based on custom transactions
+- 
 
