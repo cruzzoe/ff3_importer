@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import unicodedata
 from abc import ABC, abstractmethod
-
+import hashlib
 import subprocess
 import json
 
@@ -71,6 +71,10 @@ class BaseImporter(ABC):
         self.date_range= date_range
         self.logger.info('Init class' + self.__class__.__name__)
 
+    def create_hash(self, row):
+        result = hashlib.sha256(row.encode())
+        return result.hexdigest()
+
     def get_token(self):
         self.logger.info('Retrieving GC token')
         curl_command = f"""
@@ -131,10 +135,10 @@ class BaseImporter(ABC):
             ], capture_output=True, text=True)
             self.logger.info("Output: %s", completed_process.stdout)
             self.logger.info("Error: %s}" ,completed_process.stderr)
-            self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__))
+            self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__)
         except:
             self.logger.error('Error uploading to firefly')
-            self.notify('FF3_IMPORT', 'Error uploading to firefly for ' + self.__class__.__name__))
+            self.notify('FF3_IMPORT', 'Error uploading to firefly for ' + self.__class__.__name__)
             raise
 
     
@@ -184,6 +188,12 @@ class BaseImporter(ABC):
     
     def apply_normalization(self, df):
         df['Name'] = df['Name'].apply(self.normalize_text)
+        return df
+    
+    def create_unique_id(self, df):
+        """Create a has based on Name, amount and data strings."""
+        df['unique_base'] = df['Notes'].fillna(df['Name'])
+        df['unique_id'] = df.apply(lambda row: self.create_hash(row['unique_base'] + row['Amount'] + row['Date']), axis=1)
         return df
     
         
