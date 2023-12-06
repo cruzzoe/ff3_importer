@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-import hashlib
+
 from importers.base_importer import BaseImporter
 
 load_dotenv()
@@ -21,16 +21,10 @@ RESTAURANT_USER=os.getenv('RESTAURANT_USER')
 RESTAURANT_PASSWORD=os.getenv('RESTAURANT_PASSWORD')
 RESTAURANT_IMPORTS_DIR=os.getenv('RESTAURANT_IMPORTS_DIR')
 
-
 class RestaurantCardImporter(BaseImporter):
     
     def _init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    def create_hash(self, row):
-        result = hashlib.sha256(row.encode())
-        return result.hexdigest()
-
 
     def download_transactions(self):
         chrome_options = Options()
@@ -60,11 +54,6 @@ class RestaurantCardImporter(BaseImporter):
         soup = BeautifulSoup(html, "html.parser")
         return soup
 
-    def create_unique_id(self, df):
-        """Create a has based on Name, amount and data strings."""
-        df['unique_id'] = df.apply(lambda row: self.create_hash(row['Notes'] + row['Amount'] + row['Date']), axis=1)
-        return df
-    
 
     def transform(self, soup, month_int):
         """Transform the data into a dataframe"""

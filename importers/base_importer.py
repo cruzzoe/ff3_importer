@@ -1,4 +1,6 @@
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -6,19 +8,11 @@ import shutil
 import subprocess
 import unicodedata
 from abc import ABC, abstractmethod
-import hashlib
-import subprocess
-import json
 
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from enum import Enum
-
-class DateRange(Enum):
-    LAST_30_DAYS = 1
-    CUSTOM = 2
 
 load_dotenv()
 
@@ -65,10 +59,9 @@ HOME_IP = os.getenv("HOME_IP")
 GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
 class BaseImporter(ABC):
 
-    def __init__(self, imports_dir, date_range=DateRange.CUSTOM):
+    def __init__(self, imports_dir):
         self.import_dir = imports_dir
         self.logger = configure_logger() 
-        self.date_range= date_range
         self.logger.info('Init class' + self.__class__.__name__)
 
     def create_hash(self, row):

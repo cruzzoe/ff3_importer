@@ -4,3 +4,4 @@ selenium==4.15.2
 lxml==4.9.3
 python-dotenv==1.0.0
 pytest
+bs4

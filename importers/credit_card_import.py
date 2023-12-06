@@ -1,13 +1,10 @@
 import os
-import re
-import unicodedata
-import subprocess
-import shutil
-import logging
-from importers.base_importer import BaseImporter
 import pandas as pd
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
+
+from importers.base_importer import BaseImporter
+
 load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
