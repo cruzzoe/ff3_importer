@@ -18,17 +18,9 @@ class CreditCardImporter(BaseImporter):
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         self.empty_imports()
         os.makedirs(self.import_dir, exist_ok=True)
-        # with open('/Users/cruzoe/Downloads/smbc_jan.html', 'r') as f:
-        #     content = f.read()
-
-        # df = self.html_to_df(content)
-        # read csv
         columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
-        df = pd.read_csv('/Users/cruzoe/Downloads/202401.csv', encoding='SHIFT_JIS', names=columns, header=0)
-        # df.to_csv('202312_utf8.csv', encoding='utf-8')
+        df = pd.read_csv('/Users/cruzoe/Downloads/2024Jan.csv', encoding='SHIFT_JIS', names=columns, header=0, encoding_errors='replace')
         print(df.head())
-        # df = self.remove_non_transactions(df)
-        # Commenting out as this col is unknown with new csv data
         # df = self.handle_square_payments(df)
         df = self.make_amounts_negative(df)
         df = self.handle_pure_japanese(df)
@@ -41,14 +33,6 @@ class CreditCardImporter(BaseImporter):
         self.copy_template()
         self.upload_to_firefly()
         # self.notify('FF3_IMPORT', f'Credit data imported sucessfully with {rows} rows')
-
-    # def html_to_df(self, html):
-    #     df = pd.read_html(html)
-    #     print(df)
-    #     df.columns = ['Ignore0', 'Date', 'Name', 'Amount', 'ignore1', 'ignore2', 'ignore3', 'Description', 'ignore4', 'Ignore5', 'Ignore6', 'Ignore7']
-    #     cols_to_drop = df.columns[df.columns.str.contains('ignore'  , case=False)]
-    #     df = df.drop(columns=cols_to_drop)    
-    #     return df
 
     def remove_non_transactions(self, df):
         df = df.iloc[1:]
