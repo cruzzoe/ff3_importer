@@ -40,12 +40,15 @@ class GoCardlessCC1Importer(BaseImporter):
         return df
 
     def run(self):
-        self.empty_imports()
-        data = self.get_data(ACCOUNT)
-        df = self.convert_to_df(data)
-        self.to_csv(df)
-        self.copy_template()
-        self.upload_to_firefly()
+        try:
+            self.empty_imports()
+            data = self.get_data(ACCOUNT)
+            df = self.convert_to_df(data)
+            self.to_csv(df)
+            self.copy_template()
+            self.upload_to_firefly()
+        except:
+            self.notify('FF3_IMPORT', 'GC CC data import failed')
 
 if __name__ == '__main__':
     gc = GoCardlessCC1Importer(GC_IMPORTS_DIR)

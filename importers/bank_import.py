@@ -24,7 +24,6 @@ BANK_IMPORTS_DIR=os.getenv("BANK_IMPORTS_DIR")
 class BankImporter(BaseImporter):
 
     def run(self):
-        self.notify('FF3_IMPORT', 'About to fetch bank data and import into FF3...')
         self.empty_imports()
         month_end = datetime.date.today()
         month_start = month_end - datetime.timedelta(days=7)
@@ -54,7 +53,6 @@ class BankImporter(BaseImporter):
         except:
             self.notify('FF3_IMPORT', 'Bank data import failed during upload phase.')
             raise
-        self.notify('FF3_IMPORT', f'Bank data imported sucessfully')
 
     def get_file_path(self,download_dir):
         """From the download directory get the file path of the downloaded file based on selecting the most recently saved file."""

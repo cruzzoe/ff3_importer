@@ -69,31 +69,39 @@ class BaseImporter(ABC):
         return result.hexdigest()
 
     def get_token(self):
-        self.logger.info('Retrieving GC token')
-        curl_command = f"""
-        curl -X POST "https://bankaccountdata.gocardless.com/api/v2/token/new/" \
-        -H "accept: application/json" \
-        -H  "Content-Type: application/json" \
-        -d '{{"secret_id":"{secret_id}", "secret_key":"{secret_key}"}}'
-        """
-        process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        token = json.loads(process.stdout)
-        return token['access']
+        try:
+            self.logger.info('Retrieving GC token')
+            curl_command = f"""
+            curl -X POST "https://bankaccountdata.gocardless.com/api/v2/token/new/" \
+            -H "accept: application/json" \
+            -H  "Content-Type: application/json" \
+            -d '{{"secret_id":"{secret_id}", "secret_key":"{secret_key}"}}'
+            """
+            process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
+            token = json.loads(process.stdout)
+            return token['access']
+        except:
+            self.notify('FF3_IMPORT', 'Error retrieving token from GoCardless API')
+            raise
 
     def get_data(self, account):
-        self.logger.info('Getting Data from GoCardless API')
-        GC_TOKEN = self.get_token()
-        curl_command = f"""
-        curl -X GET "https://bankaccountdata.gocardless.com/api/v2/accounts/{account}/transactions/" \
-        -H  "accept: application/json" \
-        -H  "Authorization: Bearer {GC_TOKEN}"
-        """
-        process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
-        data = json.loads(process.stdout)
-        self.logger.info(data)
-        booked = data['transactions']['booked']
-        self.logger.info('Data Downloaded')
-        return booked
+        try:
+            self.logger.info('Getting Data from GoCardless API')
+            GC_TOKEN = self.get_token()
+            curl_command = f"""
+            curl -X GET "https://bankaccountdata.gocardless.com/api/v2/accounts/{account}/transactions/" \
+            -H  "accept: application/json" \
+            -H  "Authorization: Bearer {GC_TOKEN}"
+            """
+            process = subprocess.run(curl_command, shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
+            data = json.loads(process.stdout)
+            self.logger.info(data)
+            booked = data['transactions']['booked']
+            self.logger.info('Data Downloaded')
+            return booked
+        except:
+            self.notify('FF3_IMPORT', 'Error downloading data from GoCardless API')
+            raise
 
     def copy_template(self):
         self.logger.info('Copying template')
@@ -148,12 +156,17 @@ class BaseImporter(ABC):
         )
 
     def to_csv(self, df):
-        class_name = self.__class__.__name__
-        output_path = os.path.join(self.import_dir, class_name + '.csv')
-        rows = len(df)
-        self.logger.info(f"Number of rows in df to save to csv: {rows}")
-        df.to_csv(output_path, encoding="utf-8")
-        self.logger.info(f'Saved to path {output_path}')
+        try:
+            class_name = self.__class__.__name__
+            output_path = os.path.join(self.import_dir, class_name + '.csv')
+            rows = len(df)
+            self.logger.info(f"Number of rows in df to save to csv: {rows}")
+            df.to_csv(output_path, encoding="utf-8")
+            self.logger.info(f'Saved to path {output_path}')
+        except:
+            self.logger.error('Error saving to csv')
+            self.notify('FF3_IMPORT', 'Error saving to csv for ' + self.__class__.__name__)
+            raise
 
     def is_japanese(self, string):
         if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
@@ -163,11 +176,16 @@ class BaseImporter(ABC):
     
     def translate(self, text):
         # use chatgpt to translate text from japanese to english
-        prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
-        response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.2)
-        translated_text = response.choices[0].text.strip()
-        self.logger.info(f'Translate: {text} to {translated_text}')
-        return translated_text.replace('"', '')
+        try:
+            prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
+            response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.2)
+            translated_text = response.choices[0].text.strip()
+            self.logger.info(f'Translate: {text} to {translated_text}')
+            return translated_text.replace('"', '')
+        except:
+            self.logger.error('Error translating text')
+            self.notify('FF3_IMPORT', 'Error translating text for ' + self.__class__.__name__)
+            raise
 
     def normalize_text(self, text):
         return unicodedata.normalize('NFKC', text)

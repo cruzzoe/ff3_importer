@@ -41,14 +41,17 @@ class GoCardlessBankImporter(BaseImporter):
         return df
     
     def run(self):
-        self.empty_imports()
-        data = self.get_data(account=ACCOUNT)
-        df = self.convert_to_df(data)
-        df = self.split_account_and_desc(df)
-        df = self.filter_month(df)
-        self.to_csv(df)
-        self.copy_template()
-        self.upload_to_firefly()
+        try:
+            self.empty_imports()
+            data = self.get_data(account=ACCOUNT)
+            df = self.convert_to_df(data)
+            df = self.split_account_and_desc(df)
+            df = self.filter_month(df)
+            self.to_csv(df)
+            self.copy_template()
+            self.upload_to_firefly()
+        except:
+            self.notify('FF3_IMPORT', 'GC Bank data import failed during upload phase.')
 
 if __name__ == '__main__':
     gc = GoCardlessBankImporter(GC_IMPORTS_DIR)
