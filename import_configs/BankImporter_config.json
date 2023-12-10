@@ -30,7 +30,7 @@
     "unique_column_type": "internal_reference",
     "flow": "file",
     "content_type": "csv",
-    "custom_tag": "",
+    "custom_tag": "%year%-%month%-%day% @ %hour%:%minute% Prestia",
     "identifier": "0",
     "connection": "0",
     "ignore_spectre_categories": false,
