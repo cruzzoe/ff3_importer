@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
+import shutil
 
 from importers.base_importer import BaseImporter
 
@@ -16,7 +17,6 @@ class CreditCardImporter(BaseImporter):
     def run(self, file_path):
         # self.download()
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
-        self.empty_imports()
         os.makedirs(self.import_dir, exist_ok=True)
         columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
         df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=0, encoding_errors='replace')
@@ -32,6 +32,8 @@ class CreditCardImporter(BaseImporter):
         self.to_csv(df)
         self.copy_template()
         self.upload_to_firefly()
+        processed_name = file_path + '.processed'
+        shutil.move(file_path, processed_name)
         # self.notify('FF3_IMPORT', f'Credit data imported sucessfully with {rows} rows')
 
     def remove_non_transactions(self, df):
