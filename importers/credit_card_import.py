@@ -13,13 +13,13 @@ CC_IMPORTS_DIR=os.getenv("CC_IMPORTS_DIR")
 
 class CreditCardImporter(BaseImporter):
     
-    def run(self):
+    def run(self, file_path):
         # self.download()
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         self.empty_imports()
         os.makedirs(self.import_dir, exist_ok=True)
         columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
-        df = pd.read_csv('/Users/cruzoe/Downloads/2024Jan.csv', encoding='SHIFT_JIS', names=columns, header=0, encoding_errors='replace')
+        df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=0, encoding_errors='replace')
         print(df.head())
         # df = self.handle_square_payments(df)
         df = self.make_amounts_negative(df)
