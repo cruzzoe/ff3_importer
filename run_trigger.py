@@ -10,6 +10,8 @@ from importers.credit_card_import import CreditCardImporter
 
 load_dotenv()
 CC_IMPORTS_DIR=os.getenv("CC_IMPORTS_DIR")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class MyHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -27,7 +29,7 @@ def monitor_directory(path):
     observer = Observer()
     observer.schedule(event_handler, path, recursive=True)
     observer.start()
-
+    logging.info(f'Watching dir: {path}')
     try:
         while True:
             time.sleep(1)
