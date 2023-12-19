@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class MyHandler(FileSystemEventHandler):
     def on_created(self, event):
         # Only act on .csv files
-        if event.src_path.endswith('.csv'):
+        if event.src_path.endswith('.csv') and event.src_path != 'CreditCardImporter.csv':
             my_trigger(event.src_path)
 
 def my_trigger(file_path):
