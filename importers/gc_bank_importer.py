@@ -36,7 +36,7 @@ class GoCardlessBankImporter(BaseImporter):
     
     def filter_month(self, df):
         df['date_obj'] = pd.to_datetime(df['bookingDate'])
-        df = df[df['date_obj'].dt.month >= 10]
+        df = df[df['date_obj'].dt.year >= 2024]
         df.drop(columns=['date_obj'], inplace=True)
         return df
     
