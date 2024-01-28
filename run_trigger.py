@@ -25,14 +25,22 @@ class MyHandler(FileSystemEventHandler):
             path = event.src_path.strip(".tmp")
             path = path.replace(".syncthing.", "")
             time.sleep(3)
-            my_trigger(path)
+            if 'az' in event.src_path:
+                my_trigger(event.src_path, 'AZ')
+            elif 'pst' in event.src_path:
+                my_trigger(event.src_path, 'PST')
+            else:
+                raise Exception('Unknown credit card type')
+            
+def create_class(class_name):
+    CreditCardImporter.__class_name__ = class_name 
+    return CreditCardImporter
 
-
-def my_trigger(file_path):
+def my_trigger(file_path, cc_type):
     logging.info("A new .csv file has been created!")
-    CreditCardImporter(CC_IMPORTS_DIR).run(file_path)
-    logging.info("Credit card job complete.")
-
+    cci = create_class(cc_type)
+    cci(CC_IMPORTS_DIR).run(file_path)
+    logging.info('Credit card job complete.')
 
 def monitor_directory(path):
     event_handler = MyHandler()

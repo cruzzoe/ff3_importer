@@ -100,11 +100,13 @@ class RestaurantCardImporter(BaseImporter):
         # Selenium scrape the data
         soup = self.download_transactions()
         month = datetime.date.today()
-        month_int = month.month
+        # month_int = month.month 
+        month_int = 1
         df = self.transform(soup, month_int)
         df = self.handle_pure_japanese(df)
         df = self.apply_normalization(df)
         df.Amount = df.Amount.str.replace('円', '')
+        self.logger.info(df)
         df = self.create_unique_id(df)
         self.to_csv(df)
         self.copy_template()
