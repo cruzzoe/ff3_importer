@@ -11,35 +11,34 @@ from importers.gc_cc_1_import import GoCardlessCC1Importer
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CC_IMPORTS_DIR=os.getenv("CC_IMPORTS_DIR")
-BANK_IMPORTS_DIR=os.getenv("BANK_IMPORTS_DIR")
-RESTAURANT_IMPORTS_DIR=os.getenv("RESTAURANT_IMPORTS_DIR")
-GC_IMPORTS_DIR=os.getenv("GC_IMPORTS_DIR")
-GC_CC1_IMPORTS_DIR=os.getenv("GC_CC1_IMPORTS_DIR")
-GC_BANK1_IMPORTS_DIR=os.getenv("GC_BANK1_IMPORTS_DIR")
+CC_IMPORTS_DIR = os.getenv("CC_IMPORTS_DIR")
+BANK_IMPORTS_DIR = os.getenv("BANK_IMPORTS_DIR")
+RESTAURANT_IMPORTS_DIR = os.getenv("RESTAURANT_IMPORTS_DIR")
+GC_IMPORTS_DIR = os.getenv("GC_IMPORTS_DIR")
+GC_CC1_IMPORTS_DIR = os.getenv("GC_CC1_IMPORTS_DIR")
+GC_BANK1_IMPORTS_DIR = os.getenv("GC_BANK1_IMPORTS_DIR")
 
 
 def run(mode):
-    if mode == 'monthly':
+    if mode == "monthly":
         # run monthly
-        logging.info('Running SCRAPING bank job...')
+        logging.info("Running SCRAPING bank job...")
         # CreditCardImporter(CC_IMPORTS_DIR).run()
         RestaurantCardImporter(RESTAURANT_IMPORTS_DIR).run()
-        logging.info('Bank job complete.')
+        logging.info("Bank job complete.")
 
-    elif mode == 'daily':
+    elif mode == "daily":
         # run GC jobs daily
-        logging.info('Running GC job...')
+        logging.info("Running GC job...")
         BankImporter(BANK_IMPORTS_DIR).run()
         GoCardlessBankImporter(GC_BANK1_IMPORTS_DIR).run()
-        GoCardlessCC1Importer(GC_CC1_IMPORTS_DIR).run()   
-        logging.info('Credit card job complete.')
-
+        GoCardlessCC1Importer(GC_CC1_IMPORTS_DIR).run()
+        logging.info("Credit card job complete.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run all jobs.')
-    parser.add_argument('--mode', type=str)
+    parser = argparse.ArgumentParser(description="Run all jobs.")
+    parser.add_argument("--mode", type=str)
     args = parser.parse_args()
     mode = args.mode
-    run(mode)  
+    run(mode)
