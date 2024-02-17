@@ -205,7 +205,7 @@ class BaseImporter(ABC):
     def create_unique_id(self, df):
         """Create a has based on Name, amount and data strings."""
         df['unique_base'] = df['Notes'].fillna(df['Name'])
-        df['unique_id'] = df.apply(lambda row: self.create_hash(row['unique_base'] + row['Amount'] + row['Date']), axis=1)
+        df['unique_id'] = df.apply(lambda row: self.create_hash(row['unique_base'] + row['Amount'].astype(str) + row['Date'].astype(str)), axis=1)
         return df
     
         
