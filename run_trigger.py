@@ -26,9 +26,9 @@ class MyHandler(FileSystemEventHandler):
             path = path.replace(".syncthing.", "")
             time.sleep(3)
             if 'az' in event.src_path:
-                my_trigger(event.src_path, 'AZ')
+                my_trigger(path, 'AZ')
             elif 'pst' in event.src_path:
-                my_trigger(event.src_path, 'PST')
+                my_trigger(path, 'PST')
             else:
                 raise Exception('Unknown credit card type')
             
