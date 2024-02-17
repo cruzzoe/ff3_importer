@@ -21,7 +21,8 @@ class CreditCardImporter(BaseImporter):
 
         if self.__class__.__name__ == 'AZ':
             skiprows = 1
-            columns = ['Date', "Name", 'Amount']
+            # columns = ['Date', "Name", 'Amount']
+            columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
         elif self.__class__.__name__ == 'PST':
             columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
             skiprows = 0 
