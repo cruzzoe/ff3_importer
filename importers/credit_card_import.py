@@ -18,10 +18,12 @@ class CreditCardImporter(BaseImporter):
         # self.download()
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         os.makedirs(self.import_dir, exist_ok=True)
-        columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
+
         if self.__class__.__name__ == 'AZ':
             skiprows = 1
+            columns = ['Date', "Name", 'Amount']
         elif self.__class__.__name__ == 'PST':
+            columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
             skiprows = 0 
         df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, skiprows=skiprows, encoding_errors='replace')
         print(df.head())
