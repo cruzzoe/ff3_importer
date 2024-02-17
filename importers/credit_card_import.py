@@ -19,7 +19,11 @@ class CreditCardImporter(BaseImporter):
         self.notify('FF3_IMPORT', 'About to fetch credit data and import into FF3...')
         os.makedirs(self.import_dir, exist_ok=True)
         columns = ['Date', 'Name', '3', '4', '5', '6', 'Amount', '8', '9', '10', '11', '12', '13']
-        df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, encoding_errors='replace')
+        if self.__class__.__name__ == 'AZ':
+            skiprows = 1
+        elif self.__class__.__name__ == 'PST':
+            skiprows = 0 
+        df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, skiprows=skiprows encoding_errors='replace')
         print(df.head())
         # df = self.handle_square_payments(df)
         df = self.make_amounts_negative(df)
