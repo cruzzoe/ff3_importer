@@ -30,7 +30,7 @@ class MyHandler(FileSystemEventHandler):
             elif 'pst' in event.src_path:
                 my_trigger(path, 'PST')
             else:
-                raise Exception('Unknown credit card type')
+                logger.error('Unknown credit card type')
             
 def create_class(class_name):
     return type(class_name, (CreditCardImporter,), {})
