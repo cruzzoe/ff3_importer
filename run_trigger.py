@@ -33,8 +33,9 @@ class MyHandler(FileSystemEventHandler):
                 raise Exception('Unknown credit card type')
             
 def create_class(class_name):
-    CreditCardImporter.__class_name__ = class_name 
-    return CreditCardImporter
+    return type(class_name, (CreditCardImporter,), {})
+    # CreditCardImporter.__class_name__ = class_name 
+    # return CreditCardImporter
 
 def my_trigger(file_path, cc_type):
     logging.info("A new .csv file has been created!")
