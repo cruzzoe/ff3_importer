@@ -23,7 +23,7 @@ class CreditCardImporter(BaseImporter):
             skiprows = 1
         elif self.__class__.__name__ == 'PST':
             skiprows = 0 
-        df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, skiprows=skiprows encoding_errors='replace')
+        df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, skiprows=skiprows, encoding_errors='replace')
         print(df.head())
         # df = self.handle_square_payments(df)
         df = self.make_amounts_negative(df)
