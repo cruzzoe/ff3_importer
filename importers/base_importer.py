@@ -192,6 +192,7 @@ class BaseImporter(ABC):
 
     def handle_pure_japanese(self, df):
         # Where Notes column contains a value, use ChatGpt API to translate the value to English and replace the value in the Name column with the translated value.
+        df['Notes'] = df['Notes'].astype(str)
         df['Notes'] = df['Name'].apply(self.is_japanese)
         # for rows that have a value in Notes column, send this value to translate function and replace the value in the Name column with the translated value.
         df.loc[df['Notes'] != '', 'Name'] = df.loc[df['Notes'] != '', 'Notes'].apply(self.translate)    
