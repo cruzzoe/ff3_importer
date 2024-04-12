@@ -136,7 +136,7 @@ class BaseImporter(ABC):
             ], capture_output=True, text=True)
             self.logger.info("Output: %s", completed_process.stdout)
             self.logger.info("Error: %s}" ,completed_process.stderr)
-            self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__)
+            # self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__)
         except:
             self.logger.error('Error uploading to firefly')
             self.notify('FF3_IMPORT', 'Error uploading to firefly for ' + self.__class__.__name__)
