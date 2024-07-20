@@ -178,7 +178,7 @@ class BaseImporter(ABC):
         # use chatgpt to translate text from japanese to english
         try:
             prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
-            response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0.2)
+            response = client.completions.create(model="gpt-4o-mini", prompt=prompt, temperature=0.2)
             translated_text = response.choices[0].text.strip()
             self.logger.info(f'Translate: {text} to {translated_text}')
             return translated_text.replace('"', '')
