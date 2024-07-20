@@ -63,8 +63,13 @@ class CreditCardImporter(BaseImporter):
     def categorize(self, merchant):
         # use chatgpt to select an appropriate category for the merchant
         prompt =  f"Select an appropriate category for shopping merchant {merchant} from: restaurant, drinking, groceries, entertainment, pet, hobbies, coffee, amazon, transportation, utilities, healthcare, online services, home improvement, fitness, insurance, education, unknown. Return only one category name."
-        response = client.completions.create(model="gpt-3.5-turbo-instruct", prompt=prompt, temperature=0)
-        category = response.choices[0].text.strip().lower()
+        completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are an expert categorizer"},
+                    {"role": "user", "content": f"Select an appropriate category for shopping merchant {merchant} from: restaurant, drinking, groceries, entertainment, pet, hobbies, coffee, amazon, transportation, utilities, healthcare, online services, home improvement, fitness, insurance, education, unknown. Return only one category name."}
+                ])
+        category = completion.choices[0].message.content.strip()
         self.logger.info(f'Selected merchant: {merchant} to {category}')
         return category.capitalize()
 

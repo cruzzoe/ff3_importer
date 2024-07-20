@@ -178,8 +178,15 @@ class BaseImporter(ABC):
         # use chatgpt to translate text from japanese to english
         try:
             prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
-            response = client.completions.create(model="gpt-4o-mini", prompt=prompt, temperature=0.2)
-            translated_text = response.choices[0].text.strip()
+            # response = client.completions.create(model="gpt-4o-mini", prompt=prompt, temperature=0.2)
+            completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a japanese to english translator, skilled in accurate translations. Your answer should only contain the translated name."},
+                    {"role": "user", "content": f"Translate {text}. It is the name of either a shop, cafe, restaurant or online company."}
+                ]
+)           
+            translated_text = completion.choices[0].message.content.strip()
             self.logger.info(f'Translate: {text} to {translated_text}')
             return translated_text.replace('"', '')
         except:
