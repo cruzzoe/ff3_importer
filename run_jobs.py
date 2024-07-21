@@ -23,7 +23,7 @@ def run(mode):
     if mode == "monthly":
         # run monthly
         logging.info("Running SCRAPING bank job...")
-        # CreditCardImporter(CC_IMPORTS_DIR).run()
+        CreditCardImporter(CC_IMPORTS_DIR).run()
         RestaurantCardImporter(RESTAURANT_IMPORTS_DIR).run()
         logging.info("Bank job complete.")
 
