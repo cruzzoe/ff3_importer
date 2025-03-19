@@ -132,7 +132,7 @@ class BaseImporter(ABC):
             "-e", "IMPORT_DIR_ALLOWLIST=/import",
             "-e", f"FIREFLY_III_URL={HOME_IP}:8995",
             "-e", "WEB_SERVER=false",
-            "fireflyiii/data-importer:latest"
+            "fireflyiii/data-importer:latest-cli"
             ], capture_output=True, text=True)
             self.logger.info("Output: %s", completed_process.stdout)
             self.logger.info("Error: %s}" ,completed_process.stderr)
