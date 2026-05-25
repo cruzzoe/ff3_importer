@@ -6,6 +6,7 @@ from importers.bank_import import BankImporter
 from importers.credit_card_import import CreditCardImporter
 from importers.restaurant_import import RestaurantCardImporter
 from importers.gc_bank_importer import GoCardlessBankImporter
+from importers.gc_bank2_importer import GoCardlessBank2Importer
 from importers.gc_cc_1_import import GoCardlessCC1Importer
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,7 @@ RESTAURANT_IMPORTS_DIR = os.getenv("RESTAURANT_IMPORTS_DIR")
 GC_IMPORTS_DIR = os.getenv("GC_IMPORTS_DIR")
 GC_CC1_IMPORTS_DIR = os.getenv("GC_CC1_IMPORTS_DIR")
 GC_BANK1_IMPORTS_DIR = os.getenv("GC_BANK1_IMPORTS_DIR")
+GC_BANK2_IMPORTS_DIR = os.getenv("GC_BANK2_IMPORTS_DIR")
 
 
 def run(mode):
@@ -32,7 +34,8 @@ def run(mode):
         logging.info("Running GC job...")
         BankImporter(BANK_IMPORTS_DIR).run()
         GoCardlessBankImporter(GC_BANK1_IMPORTS_DIR).run()
-        GoCardlessCC1Importer(GC_CC1_IMPORTS_DIR).run()
+        #GoCardlessBank2Importer(GC_BANK2_IMPORTS_DIR).run()
+        #GoCardlessCC1Importer(GC_CC1_IMPORTS_DIR).run()
         logging.info("Credit card job complete.")
 
 
