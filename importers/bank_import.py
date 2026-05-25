@@ -2,13 +2,13 @@ import calendar
 import datetime
 import logging
 import os
+import random
 import time
 from logging.handlers import RotatingFileHandler
 
 import pandas as pd
 from dotenv import load_dotenv
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 
 from importers.base_importer import BaseImporter
@@ -57,65 +57,141 @@ class BankImporter(BaseImporter):
     def get_file_path(self, download_dir):
         """From the download directory get the file path of the downloaded file based on selecting the most recently saved file."""
         files = os.listdir(download_dir)
+        if not files:
+            raise Exception(f"No files found in download directory: {download_dir}")
+        # filter for csv files
+        files = [f for f in files if f.endswith(".csv")]
+        if not files:
+            raise Exception(f"No csv files found in download directory: {download_dir}")
         files.sort(key=lambda x: os.path.getmtime(os.path.join(download_dir, x)))
         file_path = os.path.join(download_dir, files[-1])
         return file_path
 
     def download_bank_csv(self, month_start, month_end, download_dir):
-        """Use selenium to download csv file from bank acount"""
-        # change month_start to str format "2023/10/01"
-        month_start = month_start.strftime("%Y/%m/%d")
-        month_end = month_end.strftime("%Y/%m/%d")
+        """Use undetected-chromedriver to download csv file from bank account"""
+        month_start_str = month_start.strftime("%Y/%m/%d")
+        month_end_str = month_end.strftime("%Y/%m/%d")
 
-        chrome_options = Options()
-        chrome_options.add_experimental_option(
-            # On Mac - Chrome prompts to download the file if default directory is changed.
-            # I dont think this happens on ubuntu
+        options = uc.ChromeOptions()
+        # Disabling headless often bypasses Access Denied on servers
+        # options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--window-size=1920,1080")
+        
+        # Prefs for download
+        options.add_experimental_option(
             "prefs",
             {
                 "download.default_directory": download_dir,
-                # "safebrowsing.enabled": True,
-                # "download.prompt_for_download": False,
-                # "safebrowsing_for_trusted_sources_enabled": False
             },
         )
-        # TODO enable this to make headless
-        chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(options=chrome_options)
+        
+        # IMPORTANT: If 'apt-get upgrade' updates google-chrome, you may need to update 
+        # the version_main to match the new major version (e.g., 149, 150).
+        self.logger.info("Starting undetected-chromedriver (forcing version 148)...")
+        driver = uc.Chrome(options=options, version_main=148)
 
-        driver.get(
-            "https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP"
-        )
-        driver.implicitly_wait(0.5)
+        try:
+            self.logger.info("Navigating to login page...")
+            driver.get("https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP")
+            
+            time.sleep(random.uniform(5, 8))
+            
+            try:
+                user_field = driver.find_element(By.ID, "dispuserId")
+                pass_field = driver.find_element(By.ID, "disppassword")
+            except Exception as e:
+                self.logger.error(f"Could not find login fields. Page Title: {driver.title}")
+                raise e
+            
+            # Type like a human
+            for char in USER:
+                user_field.send_keys(char)
+                time.sleep(random.uniform(0.05, 0.2))
+            
+            time.sleep(random.uniform(0.5, 1.5))
+            
+            for char in PASSWORD:
+                pass_field.send_keys(char)
+                time.sleep(random.uniform(0.05, 0.2))
 
-        time.sleep(1)
-        driver.find_element(By.ID, "dispuserId").send_keys(USER)
-        driver.find_element(By.ID, "disppassword").send_keys(PASSWORD)
-        # Find the submit button and click it
-        submit_button = driver.find_element(
-            By.CSS_SELECTOR, "a.btn.btn-large.btn-inverse"
-        )
-        submit_button.click()
-        time.sleep(1)
+            self.logger.info("Credentials entered. Submitting form...")
+            time.sleep(2)
+            
+            # Try to find and click the login button to better simulate human behavior
+            try:
+                # Common selectors for PRESTIA's Sign On button
+                login_button = driver.find_element(By.XPATH, "//a[contains(@onclick, 'submitProc') or contains(text(), 'Sign On')]")
+                self.logger.info(f"Found login button: {login_button.text}. Clicking...")
+                login_button.click()
+            except Exception as e:
+                self.logger.warning(f"Could not find login button via click: {e}. Falling back to JS submission...")
+                # Using direct JS submission for best compatibility
+                driver.execute_script("""
+                    submitProc();
+                    document.forms['POSNIN1'].action = 'https://online.smbctb.co.jp/ib/portal/POSNIN1next.prst';
+                    document.forms['POSNIN1'].submit();
+                """)
+            
+            self.logger.info("Waiting for dashboard...")
+            time.sleep(15) 
+            
+            self.logger.info(f"Page Title after login: {driver.title}")
+            self.logger.info(f"Current URL: {driver.current_url}")
 
-        link = driver.find_elements(By.CSS_SELECTOR, "a.link-arrow")[3]
-        link.click()
-        time.sleep(1)
-        # fill in the form
-        from_field = driver.find_element(By.NAME, "tradingHistoryPeriodFrom")
-        up_to_field = driver.find_element(By.NAME, "tradingHistoryPeriodTo")
+            if "Access Denied" in driver.title:
+                self.logger.warning("Access Denied still present. Attempting refresh...")
+                driver.get("https://online.smbctb.co.jp/ib/portal/POSNIN1next.prst")
+                time.sleep(10)
 
-        from_field.clear()
-        from_field.send_keys(month_start)
-        up_to_field.clear()
-        up_to_field.send_keys(month_end)
-        time.sleep(1)
-        submit_button = driver.find_element(
-            By.CSS_SELECTOR, "a.btn.btn-small.btn-download"
-        )
-        submit_button.click()
-        time.sleep(3)
-        driver.quit()
+            # Look for navigation links
+            all_arrow_links = driver.find_elements(By.CSS_SELECTOR, "a.link-arrow")
+            
+            if not all_arrow_links:
+                self.logger.warning("No 'link-arrow' elements found. Listing all links on page:")
+                all_links = driver.find_elements(By.TAG_NAME, "a")
+                for i, l in enumerate(all_links):
+                    t = l.text.strip()
+                    if t: self.logger.info(f"Link {i}: {t}")
+                raise Exception("Could not find navigation links on dashboard.")
+
+            # Identify the Banking History link
+            link = None
+            for l in all_arrow_links:
+                if "Banking History" in l.text:
+                    link = l
+                    break
+            
+            if not link and len(all_arrow_links) >= 4:
+                # Fallback to the historical index if text match fails
+                link = all_arrow_links[3]
+            
+            if not link:
+                raise Exception("Could not identify the Banking History link.")
+
+            self.logger.info(f"Clicking link: {link.text}")
+            link.click()
+            time.sleep(5)
+
+            # fill in the form
+            from_field = driver.find_element(By.NAME, "tradingHistoryPeriodFrom")
+            up_to_field = driver.find_element(By.NAME, "tradingHistoryPeriodTo")
+
+            from_field.clear()
+            from_field.send_keys(month_start_str)
+            up_to_field.clear()
+            up_to_field.send_keys(month_end_str)
+            time.sleep(2)
+
+            submit_button = driver.find_element(
+                By.CSS_SELECTOR, "a.btn.btn-small.btn-download"
+            )
+            submit_button.click()
+            self.logger.info("Download triggered. Waiting for file...")
+            time.sleep(10)
+        finally:
+            driver.quit()
 
     def transform_data(self, file_path, output_path):
         """Read csv file path with pandas and change encoding from shift-jis to utf-8.
