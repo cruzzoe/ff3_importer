@@ -1,4 +1,3 @@
-
 import hashlib
 import json
 import logging
@@ -7,62 +6,63 @@ import re
 import shutil
 import subprocess
 import unicodedata
+import time
 from abc import ABC, abstractmethod
 
 import pandas as pd
 from dotenv import load_dotenv
-from openai import OpenAI
-
+import google.generativeai as genai
 
 load_dotenv()
 
-secret_id=os.getenv("GC_SECRET_ID")
-secret_key=os.getenv("GC_SECRET_KEY")
-# log_file = '' os.getenv("LOG_LOCATION")
-
-# handler = RotatingFileHandler(
-#     log_file,
-#     maxBytes=1024 * 1024,
-#     backupCount=5,
-# )
-
+secret_id = os.getenv("GC_SECRET_ID")
+secret_key = os.getenv("GC_SECRET_KEY")
 
 def configure_logger():
     formatter = logging.Formatter(
-    "%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S %Z",
+        "%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S %Z",
     )
-    # handler.setFormatter(formatter)
-
-    # Create a StreamHandler to log messages to the terminal
+    
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S %Z"
-        )
-    )
+    stream_handler.setFormatter(formatter)
+    
     logger = logging.getLogger(__name__)
     logger.addHandler(stream_handler)
-    # logger.addHandler(handler)
-
-    # should_roll_over = os.path.isfile(log_file)
-    # if should_roll_over:  # log already exists, roll over!
-    #     handler.doRollover()
-
     logger.setLevel(logging.INFO)
     return logger
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# --- GEMINI CONFIGURATION ---
+# Make sure GOOGLE_API_KEY is in your .env file
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+# Initialize model globally. 
+# We use gemini-1.5-flash for speed and cost efficiency.
+system_instruction = """
+You are a financial data cleaning assistant.
+You will receive Japanese text representing a merchant, store, or company name.
+Your task:
+1. Identify the merchant or brand.
+2. If it is a known brand (e.g., 'マクドナルド', 'ユニクロ'), output the official English brand name (e.g., 'McDonald's', 'Uniqlo').
+3. If it is a generic local shop, translate the meaning accurately.
+4. Output STRICTLY the translated name only. No quotation marks, no periods, no introductory text.
+"""
+
+model = genai.GenerativeModel(
+    model_name="models/gemini-2.5-flash",
+    system_instruction=system_instruction
+)
 
 TOKEN = os.getenv("TOKEN")
 HOME_IP = os.getenv("HOME_IP")
-GOTIFY_TOKEN=os.getenv('GOTIFY_TOKEN')
+GOTIFY_TOKEN = os.getenv('GOTIFY_TOKEN')
+
 class BaseImporter(ABC):
 
     def __init__(self, imports_dir):
         self.import_dir = imports_dir
         self.logger = configure_logger() 
-        self.logger.info('Init class' + self.__class__.__name__)
+        self.logger.info('Init class ' + self.__class__.__name__)
 
     def create_hash(self, row):
         result = hashlib.sha256(row.encode())
@@ -119,9 +119,7 @@ class BaseImporter(ABC):
             shutil.rmtree(self.import_dir)
         os.makedirs(self.import_dir, exist_ok=True)
         
-    
     def upload_to_firefly(self):
-        # TODO check if any data was actually imported. If not, then don't notify!
         try:
             self.logger.info('uploading to firefly')
             completed_process = subprocess.run([
@@ -136,13 +134,11 @@ class BaseImporter(ABC):
             ], capture_output=True, text=True)
             self.logger.info("Output: %s", completed_process.stdout)
             self.logger.info("Error: %s}" ,completed_process.stderr)
-            # self.notify('FF3_IMPORT', 'Data imported sucessfully for ' + self.__class__.__name__)
         except:
             self.logger.error('Error uploading to firefly')
             self.notify('FF3_IMPORT', 'Error uploading to firefly for ' + self.__class__.__name__)
             raise
 
-    
     def notify(self, header, message):
         """Send notification to gotify"""
         cmd = f'curl "http://{HOME_IP}:8991/message?token={GOTIFY_TOKEN}" -F "title=[{header}]" -F "message"="{message}" -F "priority=5"'
@@ -175,33 +171,33 @@ class BaseImporter(ABC):
             return ''
     
     def translate(self, text):
-        # use chatgpt to translate text from japanese to english
+        # Use Gemini API to translate text from japanese to english
         try:
-            prompt =  f"Translate to english '{text}' from the perspective of converting a shopping merchant name."
-            # response = client.completions.create(model="gpt-4o-mini", prompt=prompt, temperature=0.2)
-            completion = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a japanese to english translator, skilled in accurate translations. Your answer should only contain the translated name."},
-                    {"role": "user", "content": f"Translate {text}. It is the name of either a shop, cafe, restaurant or online company."}
-                ]
-)           
-            translated_text = completion.choices[0].message.content.strip()
+            prompt = f"Translate {text}. It is the name of either a shop, cafe, restaurant or online company."
+            response = model.generate_content(prompt)
+            
+            # Check if response blocked or empty
+            if not response.text:
+                self.logger.warning(f"Empty response for {text}")
+                return text
+
+            translated_text = response.text.strip()
             self.logger.info(f'Translate: {text} to {translated_text}')
             return translated_text.replace('"', '')
-        except:
-            self.logger.error('Error translating text')
-            self.notify('FF3_IMPORT', 'Error translating text for ' + self.__class__.__name__)
-            raise
+            
+        except Exception as e:
+            # Fallback: Log error but return original text so import continues
+            self.logger.error(f'Error translating text: {e}')
+            return text
 
     def normalize_text(self, text):
         return unicodedata.normalize('NFKC', text)
 
     def handle_pure_japanese(self, df):
-        # Where Notes column contains a value, use ChatGpt API to translate the value to English and replace the value in the Name column with the translated value.
         df['Name'] = df['Name'].astype(str)
         df['Notes'] = df['Name'].apply(self.is_japanese)
-        # for rows that have a value in Notes column, send this value to translate function and replace the value in the Name column with the translated value.
+        # For rows that have a value in Notes column, send this value to translate function 
+        # and replace the value in the Name column with the translated value.
         df.loc[df['Notes'] != '', 'Name'] = df.loc[df['Notes'] != '', 'Notes'].apply(self.translate)    
         return df
     
@@ -210,14 +206,11 @@ class BaseImporter(ABC):
         return df
     
     def create_unique_id(self, df):
-        """Create a has based on Name, amount and data strings."""
+        """Create a hash based on Name, amount and data strings."""
         df['unique_base'] = df['Notes'].fillna(df['Name'])
         df['unique_id'] = df.apply(lambda row: self.create_hash(row['unique_base'] + str(row['Amount']) + str(row['Date'])), axis=1)
         return df
-    
         
     @abstractmethod
     def run(self):
         pass
-
-
