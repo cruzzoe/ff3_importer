@@ -36,3 +36,29 @@ def test_non_square_payment_keeps_column_two():
     result = importer.handle_square_payments(df)
 
     assert result.loc[0, 'Name'] == 'Merchant'
+
+
+def test_unique_ids_distinguish_identical_transactions():
+    importer = CreditCardImporter.__new__(CreditCardImporter)
+    transactions = pd.DataFrame([
+        {'Date': '2026/08/12', 'Name': 'Coffee Shop', 'Amount': '-500', 'Notes': ''},
+        {'Date': '2026/08/12', 'Name': 'Coffee Shop', 'Amount': '-500', 'Notes': ''},
+    ])
+
+    result = importer.create_unique_id(transactions)
+
+    assert result['unique_id'].nunique() == 2
+
+
+def test_unique_ids_use_non_japanese_counterparty_and_are_repeatable():
+    importer = CreditCardImporter.__new__(CreditCardImporter)
+    transactions = pd.DataFrame([
+        {'Date': '2026/08/12', 'Name': 'Coffee Shop A', 'Amount': '-500', 'Notes': ''},
+        {'Date': '2026/08/12', 'Name': 'Coffee Shop B', 'Amount': '-500', 'Notes': ''},
+    ])
+
+    first_result = importer.create_unique_id(transactions.copy())
+    second_result = importer.create_unique_id(transactions.copy())
+
+    assert first_result['unique_id'].nunique() == 2
+    assert first_result['unique_id'].tolist() == second_result['unique_id'].tolist()

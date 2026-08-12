@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import time
@@ -104,6 +105,42 @@ class CreditCardImporter(BaseImporter):
     def make_amounts_negative(self, df):
         # negate the sign on column amount
         df['Amount'] = '-'+df['Amount'].astype(str)
+        return df
+
+    def create_unique_id(self, df):
+        """Create stable IDs while distinguishing identical statement rows."""
+        df['unique_base'] = df['Notes'].replace('', pd.NA).fillna(df['Name'])
+
+        identity = pd.DataFrame({
+            'name': df['unique_base'].astype(str),
+            'amount': df['Amount'].astype(str),
+            'date': df['Date'].astype(str),
+        }, index=df.index)
+        occurrence = identity.groupby(
+            ['name', 'amount', 'date'],
+            sort=False,
+            dropna=False,
+        ).cumcount()
+
+        df['unique_id'] = [
+            self.create_hash(json.dumps(
+                {
+                    'name': name,
+                    'amount': amount,
+                    'date': date,
+                    'occurrence': int(sequence),
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(',', ':'),
+            ))
+            for name, amount, date, sequence in zip(
+                identity['name'],
+                identity['amount'],
+                identity['date'],
+                occurrence,
+            )
+        ]
         return df
 
     def categorize(self, merchant):
