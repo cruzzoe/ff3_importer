@@ -63,7 +63,7 @@ class CreditCardImporter(BaseImporter):
         df = pd.read_csv(file_path, encoding='SHIFT_JIS', names=columns, header=None, skiprows=skiprows, encoding_errors='replace')
         print(df.head())
 
-        # df = self.handle_square_payments(df)
+        df = self.handle_square_payments(df)
         df = self.make_amounts_negative(df)
 
         # This calls BaseImporter.handle_pure_japanese (Update BaseImporter for translation improvements!)
@@ -88,10 +88,17 @@ class CreditCardImporter(BaseImporter):
         return df
 
     def handle_square_payments(self, df):
-        # remove the Sq* from the description column
-        df['Description'] = df['Description'].str.replace('SQ*', '')
-        # if column description contains '*Sq', then replace the value in column name with the value in column description
-        df.loc[df['Name'] == 'Square', 'Name'] = df['Description']
+        """Use column 7 as the merchant name for full-width Square rows."""
+        if df.shape[1] < 7:
+            return df
+
+        square_rows = df.iloc[:, 1].astype(str).str.strip().eq('Ｓｑｕａｒｅ')
+        merchant_names = df.iloc[:, 6].astype('string').str.replace(
+            r'^\s*(?:ＳＱ|SQ)\s*[＊*]\s*',
+            '',
+            regex=True,
+        )
+        df.loc[square_rows, 'Name'] = merchant_names.loc[square_rows]
         return df
 
     def make_amounts_negative(self, df):
