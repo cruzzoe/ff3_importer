@@ -6,12 +6,15 @@ import re
 import subprocess
 import random
 import time
-from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
 import undetected_chromedriver as uc
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from importers.base_importer import BaseImporter
 
@@ -33,12 +36,11 @@ class BankImporter(BaseImporter):
         self.logger.info(f"End Date: {month_end}")
         try:
             self.logger.info("downloading from bank")
-            self.download_bank_csv(month_start, month_end, DOWNLOAD_DIR)
+            file_path = self.download_bank_csv(month_start, month_end, DOWNLOAD_DIR)
         except:
             self.notify("FF3_IMPORT", "Bank data import failed during Selenium phase.")
             raise
 
-        file_path = self.get_file_path(DOWNLOAD_DIR)
         self.logger.info(f"Using latest download file: {file_path}")
         assert file_path.endswith(".csv"), "File is not a csv file"
         output_path = os.path.join(self.import_dir, "bank_export")
@@ -69,167 +71,142 @@ class BankImporter(BaseImporter):
         file_path = os.path.join(download_dir, files[-1])
         return file_path
 
+    @staticmethod
+    def _download_link(driver):
+        # Select by meaning rather than a position that can change with the UI.
+        for link in driver.find_elements(By.CSS_SELECTOR, "a.link-arrow"):
+            if ("Download Account Activities" in link.text
+                    and link.is_displayed() and link.is_enabled()):
+                return link
+        return False
+
+    @staticmethod
+    def _access_denied(driver):
+        return "access denied" in driver.title.casefold()
+
+    def _login(self, driver, wait, max_attempts, retry_delay):
+        for attempt in range(1, max_attempts + 1):
+            self.logger.info("Opening bank login (attempt %s/%s)", attempt, max_attempts)
+            try:
+                driver.get(
+                    "https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP"
+                )
+                # Check for a denial before submitting credentials as well.
+                user_field = wait.until(lambda d: "denied" if self._access_denied(d)
+                                        else EC.element_to_be_clickable((By.ID, "dispuserId"))(d))
+                if user_field == "denied":
+                    outcome = "denied"
+                else:
+                    pass_field = wait.until(EC.element_to_be_clickable((By.ID, "disppassword")))
+                    user_field.clear()
+                    pass_field.clear()
+                    user_field.send_keys(USER)
+                    pass_field.send_keys(PASSWORD)
+                    login_button = wait.until(EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, "a.btn.btn-large.btn-inverse")
+                    ))
+                    login_button.click()
+                    self.logger.info("Sign-on submitted; waiting for download navigation")
+                    outcome = wait.until(lambda d: "denied" if self._access_denied(d)
+                                         else self._download_link(d))
+            except TimeoutException:
+                # Do not resubmit on an unknown result: it could be MFA,
+                # rejected credentials, a changed UI, or a slow response.
+                raise RuntimeError(
+                    "Bank login timed out waiting for expected controls. "
+                    "No further sign-on attempted; check manually for a login error, "
+                    "verification prompt, or changed bank page."
+                ) from None
+
+            if outcome != "denied":
+                self.logger.info("Bank download navigation is ready")
+                return outcome
+
+            self.logger.warning("Bank returned Access Denied (attempt %s/%s)",
+                                attempt, max_attempts)
+            if attempt == max_attempts:
+                raise RuntimeError(
+                    f"Bank returned Access Denied after {max_attempts} attempt(s); "
+                    "no CSV downloaded. Check normal browser access on this network."
+                )
+            delay = retry_delay * (2 ** (attempt - 1)) + random.uniform(0, 5)
+            self.logger.info("Waiting %.1f seconds before retrying denied access", delay)
+            time.sleep(delay)
+
+    @staticmethod
+    def _csv_snapshot(download_dir):
+        return {p: (p.stat().st_mtime_ns, p.stat().st_size)
+                for p in Path(download_dir).glob("*.csv") if p.is_file()}
+
+    def _new_csv(self, download_dir, before):
+        # Chrome renames a .crdownload to .csv when the download completes.
+        current = self._csv_snapshot(download_dir)
+        changed = [p for p, signature in current.items()
+                   if signature != before.get(p) and signature[1] > 0
+                   and not Path(str(p) + ".crdownload").exists()]
+        return str(max(changed, key=lambda p: current[p][0])) if changed else False
+
     def download_bank_csv(self, month_start, month_end, download_dir):
-        """Use undetected-chromedriver to download csv file from bank account"""
-        month_start_str = month_start.strftime("%Y/%m/%d")
-        month_end_str = month_end.strftime("%Y/%m/%d")
+        """Download a fresh CSV, with bounded retries and credential-free diagnostics."""
+        # These settings are deliberately read independently of credential files.
+        max_attempts = int(os.getenv("BANK_LOGIN_ATTEMPTS", "2"))
+        retry_delay = float(os.getenv("BANK_LOGIN_RETRY_SECONDS", "60"))
+        wait_seconds = float(os.getenv("BANK_PAGE_TIMEOUT_SECONDS", "45"))
+        download_seconds = float(os.getenv("BANK_DOWNLOAD_TIMEOUT_SECONDS", "120"))
+        if not 1 <= max_attempts <= 4:
+            raise ValueError("BANK_LOGIN_ATTEMPTS must be between 1 and 4")
+        if not 30 <= retry_delay <= 600:
+            raise ValueError("BANK_LOGIN_RETRY_SECONDS must be between 30 and 600")
+        if not 1 <= wait_seconds <= 300 or not 1 <= download_seconds <= 600:
+            raise ValueError("Bank page/download timeouts are outside supported bounds")
+        if not USER or not PASSWORD:
+            raise RuntimeError("Bank login credentials are not configured")
+        if not download_dir:
+            raise RuntimeError("Bank download directory is not configured")
+        download_dir = os.path.abspath(download_dir)
+        os.makedirs(download_dir, exist_ok=True)
 
         options = uc.ChromeOptions()
-        options.binary_location = os.getenv(
-            "CHROME_BINARY", "/usr/bin/google-chrome"
-        )
-        # Disabling headless often bypasses Access Denied on servers
-        # options.add_argument("--headless")
+        options.binary_location = os.getenv("CHROME_BINARY", "/usr/bin/google-chrome")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--window-size=1920,1080")
-        
-        # Prefs for download
-        options.add_experimental_option(
-            "prefs",
-            {
-                "download.default_directory": download_dir,
-            },
-        )
-        
+        options.add_experimental_option("prefs", {"download.default_directory": download_dir})
         chrome_version = subprocess.check_output(
             [options.binary_location, "--version"], text=True
         ).strip()
         match = re.search(r"(\d+)\.", chrome_version)
         if not match:
-            raise RuntimeError(f"Could not determine Chrome version: {chrome_version}")
+            raise RuntimeError("Could not determine Chrome version")
         chrome_major = int(match.group(1))
-
-        self.logger.info(
-            "Starting undetected-chromedriver for Chrome major version %s...",
-            chrome_major,
-        )
+        self.logger.info("Starting bank browser for Chrome major version %s", chrome_major)
         driver = uc.Chrome(options=options, version_main=chrome_major)
-
         try:
-            # The bank's anti-bot layer (Akamai) intermittently returns an
-            # "Access Denied" page after sign-on, so retry the whole login a
-            # few times before giving up.
-            max_login_attempts = 4
-            all_arrow_links = []
-            for attempt in range(1, max_login_attempts + 1):
-                self.logger.info(
-                    f"Navigating to login page... (attempt {attempt}/{max_login_attempts})"
-                )
-                driver.get(
-                    "https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP"
-                )
-
-                time.sleep(random.uniform(5, 8))
-
-                try:
-                    user_field = driver.find_element(By.ID, "dispuserId")
-                    pass_field = driver.find_element(By.ID, "disppassword")
-                except Exception as e:
-                    self.logger.error(f"Could not find login fields. Page Title: {driver.title}")
-                    raise e
-
-                # Type like a human
-                for char in USER:
-                    user_field.send_keys(char)
-                    time.sleep(random.uniform(0.05, 0.2))
-
-                time.sleep(random.uniform(0.5, 1.5))
-
-                for char in PASSWORD:
-                    pass_field.send_keys(char)
-                    time.sleep(random.uniform(0.05, 0.2))
-
-                self.logger.info("Credentials entered. Submitting form...")
-                time.sleep(2)
-
-                # The login page now contains a hidden duplicate "Sign On"
-                # link, so target the visible button by its class instead.
-                try:
-                    login_button = driver.find_element(
-                        By.CSS_SELECTOR, "a.btn.btn-large.btn-inverse"
-                    )
-                    self.logger.info(
-                        f"Found login button: {login_button.text}. Clicking..."
-                    )
-                    login_button.click()
-                except Exception as e:
-                    self.logger.warning(
-                        f"Could not click login button: {e}. "
-                        "Falling back to the page's own submit helper..."
-                    )
-                    driver.execute_script(
-                        "submitProc(); doTransaction('/portal/POSNIN1next', null, false, null, POSNIN1, null, null);"
-                    )
-
-                self.logger.info("Waiting for dashboard...")
-                time.sleep(15)
-
-                self.logger.info(f"Page Title after login: {driver.title}")
-                self.logger.info(f"Current URL: {driver.current_url}")
-
-                if "Access Denied" in driver.title:
-                    self.logger.warning(
-                        f"Access Denied after login (attempt {attempt}). Retrying..."
-                    )
-                    time.sleep(random.uniform(8, 15))
-                    continue
-
-                # Look for navigation links
-                all_arrow_links = driver.find_elements(
-                    By.CSS_SELECTOR, "a.link-arrow"
-                )
-                if all_arrow_links:
-                    break
-
-                self.logger.warning(
-                    f"No 'link-arrow' elements found on attempt {attempt}. Retrying..."
-                )
-                time.sleep(random.uniform(8, 15))
-
-            if not all_arrow_links:
-                self.logger.warning("No 'link-arrow' elements found. Listing all links on page:")
-                all_links = driver.find_elements(By.TAG_NAME, "a")
-                for i, l in enumerate(all_links):
-                    t = l.text.strip()
-                    if t:
-                        self.logger.info(f"Link {i}: {t}")
-                raise Exception("Could not find navigation links on dashboard.")
-
-            # Identify the Download Account Activities link
-            link = None
-            for l in all_arrow_links:
-                if "Download Account Activities" in l.text:
-                    link = l
-                    break
-
-            if not link and len(all_arrow_links) >= 4:
-                # Fallback to the historical index if text match fails
-                link = all_arrow_links[3]
-
-            if not link:
-                raise Exception("Could not identify the Download Account Activities link.")
-
-            self.logger.info(f"Clicking link: {link.text}")
+            driver.set_page_load_timeout(wait_seconds)
+            wait = WebDriverWait(driver, wait_seconds, ignored_exceptions=(StaleElementReferenceException,))
+            link = self._login(driver, wait, max_attempts, retry_delay)
             link.click()
-            time.sleep(5)
-
-            # fill in the form
-            from_field = driver.find_element(By.NAME, "tradingHistoryPeriodFrom")
-            up_to_field = driver.find_element(By.NAME, "tradingHistoryPeriodTo")
-
+            from_field = wait.until(EC.element_to_be_clickable((By.NAME, "tradingHistoryPeriodFrom")))
+            up_to_field = wait.until(EC.element_to_be_clickable((By.NAME, "tradingHistoryPeriodTo")))
             from_field.clear()
-            from_field.send_keys(month_start_str)
+            from_field.send_keys(month_start.strftime("%Y/%m/%d"))
             up_to_field.clear()
-            up_to_field.send_keys(month_end_str)
-            time.sleep(2)
-
-            submit_button = driver.find_element(
-                By.CSS_SELECTOR, "a.btn.btn-small.btn-download"
-            )
+            up_to_field.send_keys(month_end.strftime("%Y/%m/%d"))
+            submit_button = wait.until(EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "a.btn.btn-small.btn-download")
+            ))
+            before = self._csv_snapshot(download_dir)
             submit_button.click()
-            self.logger.info("Download triggered. Waiting for file...")
-            time.sleep(10)
+            self.logger.info("Download requested; waiting for a fresh completed CSV")
+            try:
+                return WebDriverWait(driver, download_seconds).until(
+                    lambda _: self._new_csv(download_dir, before)
+                )
+            except TimeoutException:
+                raise RuntimeError(
+                    "Bank CSV download timed out; no fresh completed CSV found. "
+                    "Existing files will not be imported."
+                ) from None
         finally:
             driver.quit()
 
