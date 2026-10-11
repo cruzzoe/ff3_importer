@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from dotenv import load_dotenv
-import google.generativeai as genai
+from openai import OpenAI
 
 load_dotenv()
 
@@ -32,12 +32,22 @@ def configure_logger():
     logger.setLevel(logging.INFO)
     return logger
 
-# --- GEMINI CONFIGURATION ---
-# Make sure GOOGLE_API_KEY is in your .env file
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# --- DEEPSEEK CONFIGURATION ---
+# Make sure DEEPSEEK_API_KEY is in your .env file
+_client = None
 
-# Initialize model globally. 
-# We use gemini-1.5-flash for speed and cost efficiency.
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com",
+        )
+    return _client
+
+
+# DeepSeek chat completions via the OpenAI-compatible API.
 system_instruction = """
 You are a financial data cleaning assistant.
 You will receive Japanese text representing a merchant, store, or company name.
@@ -47,11 +57,6 @@ Your task:
 3. If it is a generic local shop, translate the meaning accurately.
 4. Output STRICTLY the translated name only. No quotation marks, no periods, no introductory text.
 """
-
-model = genai.GenerativeModel(
-    model_name="models/gemini-2.5-flash",
-    system_instruction=system_instruction
-)
 
 TOKEN = os.getenv("TOKEN")
 HOME_IP = os.getenv("HOME_IP")
@@ -165,23 +170,31 @@ class BaseImporter(ABC):
             raise
 
     def is_japanese(self, string):
+        if not isinstance(string, str):
+            return ''
         if bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u30FC]', string)):
             return string
         else:
             return ''
     
     def translate(self, text):
-        # Use Gemini API to translate text from japanese to english
+        # Use DeepSeek API to translate text from japanese to english
         try:
             prompt = f"Translate {text}. It is the name of either a shop, cafe, restaurant or online company."
-            response = model.generate_content(prompt)
+            completion = _get_client().chat.completions.create(
+                model="deepseek-v4-flash",
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": prompt},
+                ],
+            )
             
             # Check if response blocked or empty
-            if not response.text:
+            if not completion.choices[0].message.content:
                 self.logger.warning(f"Empty response for {text}")
                 return text
 
-            translated_text = response.text.strip()
+            translated_text = completion.choices[0].message.content.strip()
             self.logger.info(f'Translate: {text} to {translated_text}')
             return translated_text.replace('"', '')
             
@@ -194,7 +207,8 @@ class BaseImporter(ABC):
         return unicodedata.normalize('NFKC', text)
 
     def handle_pure_japanese(self, df):
-        df['Name'] = df['Name'].astype(str)
+        # pandas 3 preserves missing values when casting to str.
+        df['Name'] = df['Name'].fillna('').astype(str)
         df['Notes'] = df['Name'].apply(self.is_japanese)
         # For rows that have a value in Notes column, send this value to translate function 
         # and replace the value in the Name column with the translated value.
