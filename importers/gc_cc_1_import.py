@@ -5,13 +5,10 @@ import json
 from importers.base_importer import BaseImporter
 import pandas as pd
 #  extract data from API
-from openai import OpenAI
 
 GC_TOKEN = os.getenv('GC_TOKEN')
 ACCOUNT = os.getenv('GC_ACCOUNT_CC1')
 GC_IMPORTS_DIR = os.getenv('GC_CC1_IMPORTS_DIR')
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 secret_id=os.getenv("GC_SECRET_ID")
 secret_key=os.getenv("GC_SECRET_KEY")

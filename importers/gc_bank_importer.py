@@ -3,13 +3,11 @@ import os
 
 from importers.base_importer import BaseImporter
 import pandas as pd
-from openai import OpenAI
 
 GC_TOKEN = os.getenv('GC_TOKEN')
 ACCOUNT = os.getenv('GC_BANK1_ACCOUNT')
 GC_IMPORTS_DIR = os.getenv('GC_BANK1_IMPORTS_DIR')
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class GoCardlessBankImporter(BaseImporter):
 
