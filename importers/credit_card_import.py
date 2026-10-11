@@ -4,14 +4,11 @@ import shutil
 import time
 import pandas as pd
 from dotenv import load_dotenv
-import google.generativeai as genai
 
 from importers.base_importer import BaseImporter
+from importers.base_importer import _get_client
 
 load_dotenv()
-
-# --- GEMINI CONFIGURATION ---
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # 1. Define your categories clearly
 VALID_CATEGORIES = [
@@ -20,7 +17,7 @@ VALID_CATEGORIES = [
     "online services", "home improvement", "fitness", "insurance", "education", "unknown"
 ]
 
-# 2. Define the Categorization Model with "Few-Shot" Logic Rules
+# 2. Define the Categorization System Prompt with "Few-Shot" Logic Rules
 system_instruction_categorization = (
     f"You are an expert transaction categorizer. "
     f"You will be given a merchant name. "
@@ -33,11 +30,6 @@ system_instruction_categorization = (
     f"5. Netflix / Spotify / YouTube / Cinemas -> 'Entertainment'\n"
     f"6. Uniqlo / GU / Zozotown -> 'Hobbies'\n"
     f"Return ONLY the category name. Do not explain."
-)
-
-model_categorizer = genai.GenerativeModel(
-    model_name="models/gemini-2.5-flash",
-    system_instruction=system_instruction_categorization
 )
 
 CC_IMPORTS_DIR = os.getenv("CC_IMPORTS_DIR")
@@ -147,14 +139,20 @@ class CreditCardImporter(BaseImporter):
         try:
             prompt = f"Merchant Name: {merchant}"
             
-            response = model_categorizer.generate_content(prompt)
+            completion = _get_client().chat.completions.create(
+                model="deepseek-v4-flash",
+                messages=[
+                    {"role": "system", "content": system_instruction_categorization},
+                    {"role": "user", "content": prompt},
+                ],
+            )
             
-            if not response.text:
+            if not completion.choices[0].message.content:
                 return "Unknown"
 
-            category = response.text.strip().replace('"', '').replace("'", "")
+            category = completion.choices[0].message.content.strip().replace('"', '').replace("'", "")
             
-            # Validation: fallback to 'Unknown' if Gemini hallucinates a new category
+            # Validation: fallback to 'Unknown' if the model returns a new category
             if category.lower() not in [c.lower() for c in VALID_CATEGORIES]:
                 self.logger.warning(f"Invalid category '{category}' for '{merchant}'. Using Unknown.")
                 return "Unknown"
