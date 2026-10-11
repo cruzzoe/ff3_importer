@@ -2,6 +2,8 @@ import calendar
 import datetime
 import logging
 import os
+import re
+import subprocess
 import random
 import time
 from logging.handlers import RotatingFileHandler
@@ -73,6 +75,9 @@ class BankImporter(BaseImporter):
         month_end_str = month_end.strftime("%Y/%m/%d")
 
         options = uc.ChromeOptions()
+        options.binary_location = os.getenv(
+            "CHROME_BINARY", "/usr/bin/google-chrome"
+        )
         # Disabling headless often bypasses Access Denied on servers
         # options.add_argument("--headless")
         options.add_argument("--no-sandbox")
@@ -87,88 +92,123 @@ class BankImporter(BaseImporter):
             },
         )
         
-        # IMPORTANT: If 'apt-get upgrade' updates google-chrome, you may need to update 
-        # the version_main to match the new major version (e.g., 149, 150).
-        self.logger.info("Starting undetected-chromedriver (forcing version 148)...")
-        driver = uc.Chrome(options=options, version_main=148)
+        chrome_version = subprocess.check_output(
+            [options.binary_location, "--version"], text=True
+        ).strip()
+        match = re.search(r"(\d+)\.", chrome_version)
+        if not match:
+            raise RuntimeError(f"Could not determine Chrome version: {chrome_version}")
+        chrome_major = int(match.group(1))
+
+        self.logger.info(
+            "Starting undetected-chromedriver for Chrome major version %s...",
+            chrome_major,
+        )
+        driver = uc.Chrome(options=options, version_main=chrome_major)
 
         try:
-            self.logger.info("Navigating to login page...")
-            driver.get("https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP")
-            
-            time.sleep(random.uniform(5, 8))
-            
-            try:
-                user_field = driver.find_element(By.ID, "dispuserId")
-                pass_field = driver.find_element(By.ID, "disppassword")
-            except Exception as e:
-                self.logger.error(f"Could not find login fields. Page Title: {driver.title}")
-                raise e
-            
-            # Type like a human
-            for char in USER:
-                user_field.send_keys(char)
-                time.sleep(random.uniform(0.05, 0.2))
-            
-            time.sleep(random.uniform(0.5, 1.5))
-            
-            for char in PASSWORD:
-                pass_field.send_keys(char)
-                time.sleep(random.uniform(0.05, 0.2))
+            # The bank's anti-bot layer (Akamai) intermittently returns an
+            # "Access Denied" page after sign-on, so retry the whole login a
+            # few times before giving up.
+            max_login_attempts = 4
+            all_arrow_links = []
+            for attempt in range(1, max_login_attempts + 1):
+                self.logger.info(
+                    f"Navigating to login page... (attempt {attempt}/{max_login_attempts})"
+                )
+                driver.get(
+                    "https://login.smbctb.co.jp/ib/portal/POSNIN1prestiatop.prst?LOCALE=en_JP"
+                )
 
-            self.logger.info("Credentials entered. Submitting form...")
-            time.sleep(2)
-            
-            # Try to find and click the login button to better simulate human behavior
-            try:
-                # Common selectors for PRESTIA's Sign On button
-                login_button = driver.find_element(By.XPATH, "//a[contains(@onclick, 'submitProc') or contains(text(), 'Sign On')]")
-                self.logger.info(f"Found login button: {login_button.text}. Clicking...")
-                login_button.click()
-            except Exception as e:
-                self.logger.warning(f"Could not find login button via click: {e}. Falling back to JS submission...")
-                # Using direct JS submission for best compatibility
-                driver.execute_script("""
-                    submitProc();
-                    document.forms['POSNIN1'].action = 'https://online.smbctb.co.jp/ib/portal/POSNIN1next.prst';
-                    document.forms['POSNIN1'].submit();
-                """)
-            
-            self.logger.info("Waiting for dashboard...")
-            time.sleep(15) 
-            
-            self.logger.info(f"Page Title after login: {driver.title}")
-            self.logger.info(f"Current URL: {driver.current_url}")
+                time.sleep(random.uniform(5, 8))
 
-            if "Access Denied" in driver.title:
-                self.logger.warning("Access Denied still present. Attempting refresh...")
-                driver.get("https://online.smbctb.co.jp/ib/portal/POSNIN1next.prst")
-                time.sleep(10)
+                try:
+                    user_field = driver.find_element(By.ID, "dispuserId")
+                    pass_field = driver.find_element(By.ID, "disppassword")
+                except Exception as e:
+                    self.logger.error(f"Could not find login fields. Page Title: {driver.title}")
+                    raise e
 
-            # Look for navigation links
-            all_arrow_links = driver.find_elements(By.CSS_SELECTOR, "a.link-arrow")
-            
+                # Type like a human
+                for char in USER:
+                    user_field.send_keys(char)
+                    time.sleep(random.uniform(0.05, 0.2))
+
+                time.sleep(random.uniform(0.5, 1.5))
+
+                for char in PASSWORD:
+                    pass_field.send_keys(char)
+                    time.sleep(random.uniform(0.05, 0.2))
+
+                self.logger.info("Credentials entered. Submitting form...")
+                time.sleep(2)
+
+                # The login page now contains a hidden duplicate "Sign On"
+                # link, so target the visible button by its class instead.
+                try:
+                    login_button = driver.find_element(
+                        By.CSS_SELECTOR, "a.btn.btn-large.btn-inverse"
+                    )
+                    self.logger.info(
+                        f"Found login button: {login_button.text}. Clicking..."
+                    )
+                    login_button.click()
+                except Exception as e:
+                    self.logger.warning(
+                        f"Could not click login button: {e}. "
+                        "Falling back to the page's own submit helper..."
+                    )
+                    driver.execute_script(
+                        "submitProc(); doTransaction('/portal/POSNIN1next', null, false, null, POSNIN1, null, null);"
+                    )
+
+                self.logger.info("Waiting for dashboard...")
+                time.sleep(15)
+
+                self.logger.info(f"Page Title after login: {driver.title}")
+                self.logger.info(f"Current URL: {driver.current_url}")
+
+                if "Access Denied" in driver.title:
+                    self.logger.warning(
+                        f"Access Denied after login (attempt {attempt}). Retrying..."
+                    )
+                    time.sleep(random.uniform(8, 15))
+                    continue
+
+                # Look for navigation links
+                all_arrow_links = driver.find_elements(
+                    By.CSS_SELECTOR, "a.link-arrow"
+                )
+                if all_arrow_links:
+                    break
+
+                self.logger.warning(
+                    f"No 'link-arrow' elements found on attempt {attempt}. Retrying..."
+                )
+                time.sleep(random.uniform(8, 15))
+
             if not all_arrow_links:
                 self.logger.warning("No 'link-arrow' elements found. Listing all links on page:")
                 all_links = driver.find_elements(By.TAG_NAME, "a")
                 for i, l in enumerate(all_links):
                     t = l.text.strip()
-                    if t: self.logger.info(f"Link {i}: {t}")
+                    if t:
+                        self.logger.info(f"Link {i}: {t}")
                 raise Exception("Could not find navigation links on dashboard.")
 
-            # Identify the Banking History link
+            # Identify the Download Account Activities link
             link = None
             for l in all_arrow_links:
-                if "Banking History" in l.text:
+                if "Download Account Activities" in l.text:
                     link = l
                     break
-            
+
             if not link and len(all_arrow_links) >= 4:
                 # Fallback to the historical index if text match fails
                 link = all_arrow_links[3]
-            
+
             if not link:
-                raise Exception("Could not identify the Banking History link.")
+                raise Exception("Could not identify the Download Account Activities link.")
 
             self.logger.info(f"Clicking link: {link.text}")
             link.click()
