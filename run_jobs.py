@@ -31,12 +31,12 @@ def run(mode):
 
     elif mode == "daily":
         # run GC jobs daily
-        logging.info("Running GC job...")
         BankImporter(BANK_IMPORTS_DIR).run()
+        logging.info("Running GC job...")
         GoCardlessBankImporter(GC_BANK1_IMPORTS_DIR).run()
+        logging.info("Go Cardless job complete.")
         #GoCardlessBank2Importer(GC_BANK2_IMPORTS_DIR).run()
         #GoCardlessCC1Importer(GC_CC1_IMPORTS_DIR).run()
-        logging.info("Credit card job complete.")
 
 
 if __name__ == "__main__":
